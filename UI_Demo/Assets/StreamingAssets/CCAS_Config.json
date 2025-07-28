@@ -1,0 +1,17 @@
+{
+  "packs": [
+    {
+      "id": "Basic",
+      "cost": 1200,
+      "currency": "Coins",
+      "rarityWeights": {
+        "common": 0.7,
+        "rare": 0.2,
+        "epic": 0.09,
+        "legendary": 0.01
+      }
+    }
+  ],
+  "dupeRules": { "common": 10, "rare": 50, "epic": 200, "legendary": 0 },
+  "samplePull": ["common", "rare", "epic", "common", "rare"]
+}
