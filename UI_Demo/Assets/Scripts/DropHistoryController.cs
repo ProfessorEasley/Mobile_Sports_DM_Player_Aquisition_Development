@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;     // for ScrollRect & LayoutRebuilder
+using System.Collections.Generic; 
 
 public class DropHistoryController : MonoBehaviour
 {
@@ -27,46 +28,50 @@ public class DropHistoryController : MonoBehaviour
             hubPanel.SetActive(true);
         });
 
-        // Launch the population + scroll coroutine
+    }
+    public void RefreshDropHistory()
+    {
         StartCoroutine(PopulateAndScroll());
     }
-
+    
     IEnumerator PopulateAndScroll()
     {
-        // 1) Instantiate entries
-        var config = CCASConfig.Instance;
-        var pulls  = config.samplePull;
-        var rules  = config.dupeRules;
-
-        foreach (var tier in pulls)
+        foreach (Transform child in contentParent)
         {
-            var entry = Instantiate(resultTemplate, contentParent);
-            entry.SetActive(true);
-
-            var tmp = entry.GetComponentInChildren<TextMeshProUGUI>();
-            tmp.text = $"{tier.ToUpper()} → XP: {GetXPForTier(tier, rules)}";
+            if (child.gameObject == resultTemplate) continue; // don't destroy the template
+            Destroy(child.gameObject);
         }
 
-        // 2) Wait one frame for the layout group & size fitter to do their work
+        // 2) Instantiate entries
+        var pulls = DropConfigManager.Instance.allPullResults;
+        var rules = DropConfigManager.Instance.config.duplicate_conversion.xp_conversion_rates;
+
+        foreach (var pull in pulls)
+        {
+            foreach (var rarity in pull)
+            {
+                var entry = Instantiate(resultTemplate, contentParent);
+                entry.SetActive(true);
+
+                var tmp = entry.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                int xp = GetXPForTier(rarity, rules);
+                tmp.text = $"{rarity.ToUpper()} → XP: {xp}";
+            }
+        }
+
         yield return null;
 
-        // 3) Force an immediate layout rebuild (just in case)
         var rt = contentParent as RectTransform;
         LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
 
-        // 4) Reset scroll to top
         scrollRect.verticalNormalizedPosition = 1f;
     }
 
-    int GetXPForTier(string tier, DupeRules rules)
+    int GetXPForTier(string tier, Dictionary<string, int> xpMap)
     {
-        switch (tier.ToLower())
-        {
-            case "common":    return rules.common;
-            case "rare":      return rules.rare;
-            case "epic":      return rules.epic;
-            case "legendary": return rules.legendary;
-            default:          return 0;
-        }
+        if (xpMap.TryGetValue(tier.ToLower(), out int xp))
+            return xp;
+        return 0;
     }
+
 }
