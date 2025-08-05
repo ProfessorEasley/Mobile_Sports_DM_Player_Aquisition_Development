@@ -8,7 +8,9 @@ public class DropConfigManager : MonoBehaviour
     public static DropConfigManager Instance;
 
     public DropConfigWrapper config;
+    public List<string> latestPull = new List<string>();
     public List<List<string>> allPullResults = new List<List<string>>();
+
 
     void Awake()
     {
@@ -60,7 +62,10 @@ public class DropConfigManager : MonoBehaviour
             results.Add(rarity);
         }
 
-        // Log this pull for history
+        // Save latest pull
+        latestPull = results;
+
+        // Optional: still keep full history if needed
         allPullResults.Add(results);
 
         return results;

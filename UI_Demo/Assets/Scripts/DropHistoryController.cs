@@ -43,21 +43,24 @@ public class DropHistoryController : MonoBehaviour
         }
 
         // 2) Instantiate entries
-        var pulls = DropConfigManager.Instance.allPullResults;
+        var pull = DropConfigManager.Instance.latestPull;
         var rules = DropConfigManager.Instance.config.duplicate_conversion.xp_conversion_rates;
-
-        foreach (var pull in pulls)
+        foreach (Transform child in contentParent)
         {
-            foreach (var rarity in pull)
-            {
-                var entry = Instantiate(resultTemplate, contentParent);
-                entry.SetActive(true);
-
-                var tmp = entry.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-                int xp = GetXPForTier(rarity, rules);
-                tmp.text = $"{rarity.ToUpper()} → XP: {xp}";
-            }
+            if (child.gameObject == resultTemplate) continue;
+            Destroy(child.gameObject);
         }
+
+        foreach (var rarity in pull)
+        {
+            var entry = Instantiate(resultTemplate, contentParent);
+            entry.SetActive(true);
+
+            var tmp = entry.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            int xp = GetXPForTier(rarity, rules);
+            tmp.text = $"{rarity.ToUpper()} → XP: {xp}";
+        }
+
 
         yield return null;
 
