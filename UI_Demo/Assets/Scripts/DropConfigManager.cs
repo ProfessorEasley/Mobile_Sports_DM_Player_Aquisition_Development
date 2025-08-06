@@ -62,14 +62,23 @@ public class DropConfigManager : MonoBehaviour
             results.Add(rarity);
         }
 
-        // Save latest pull
         latestPull = results;
-
-        // Optional: still keep full history if needed
         allPullResults.Add(results);
+
+        // 🔥 Log to JSON file
+        var logger = FindObjectOfType<TelemetryLogger>();
+        if (logger == null)
+        {
+            Debug.LogWarning("⚠️ TelemetryLogger not found in scene!");
+        }
+        else
+        {
+            logger.LogPull(packKey, results);
+        }
 
         return results;
     }
+
 
 
     private string GetWeightedRandomRarity(DropRates rates)
