@@ -1,0 +1,569 @@
+{
+  "pack_types": {
+    "bronze_pack": {
+      "pack_id": "bronze_001",
+      "name": "Bronze Pack",
+      "cost": {
+        "coins": 1000,
+        "gems": 0
+      },
+      "guaranteed_cards": 3,
+      "drop_rates": {
+        "common": 0.80,
+        "uncommon": 0.15,
+        "rare": 0.05,
+        "epic": 0.00,
+        "legendary": 0.00
+      },
+      "pity_rules": {
+        "enabled": true,
+        "rare_guarantee_after": 5,
+        "epic_guarantee_after": 25,
+        "legendary_guarantee_after": 100
+      },
+      "emotional_modifiers": {
+        "anticipation_boost": 1.0,
+        "frustration_threshold": 3,
+        "satisfaction_multiplier": 1.0,
+        "regret_accumulation_rate": 1.2
+      }
+    },
+    "silver_pack": {
+      "pack_id": "silver_001", 
+      "name": "Silver Pack",
+      "cost": {
+        "coins": 1500,
+        "gems": 50
+      },
+      "guaranteed_cards": 4,
+      "drop_rates": {
+        "common": 0.60,
+        "uncommon": 0.25,
+        "rare": 0.10,
+        "epic": 0.05,
+        "legendary": 0.00
+      },
+      "pity_rules": {
+        "enabled": true,
+        "rare_guarantee_after": 4,
+        "epic_guarantee_after": 20,
+        "legendary_guarantee_after": 80
+      },
+      "emotional_modifiers": {
+        "anticipation_boost": 1.2,
+        "frustration_threshold": 2,
+        "satisfaction_multiplier": 1.1,
+        "regret_accumulation_rate": 1.0
+      }
+    },
+    "gold_pack": {
+      "pack_id": "gold_001",
+      "name": "Gold Pack",
+      "cost": {
+        "coins": 2000,
+        "gems": 100
+      },
+      "guaranteed_cards": 5,
+      "drop_rates": {
+        "common": 0.45,
+        "uncommon": 0.30,
+        "rare": 0.15,
+        "epic": 0.10,
+        "legendary": 0.00
+      },
+      "pity_rules": {
+        "enabled": true,
+        "rare_guarantee_after": 3,
+        "epic_guarantee_after": 15,
+        "legendary_guarantee_after": 60
+      },
+      "emotional_modifiers": {
+        "anticipation_boost": 1.4,
+        "frustration_threshold": 2,
+        "satisfaction_multiplier": 1.3,
+        "regret_accumulation_rate": 0.8
+      }
+    },
+    "elite_pack": {
+      "pack_id": "elite_001",
+      "name": "Elite Pack",
+      "cost": {
+        "coins": 0,
+        "gems": 200
+      },
+      "guaranteed_cards": 6,
+      "drop_rates": {
+        "common": 0.30,
+        "uncommon": 0.35,
+        "rare": 0.20,
+        "epic": 0.15,
+        "legendary": 0.00
+      },
+      "pity_rules": {
+        "enabled": true,
+        "rare_guarantee_after": 2,
+        "epic_guarantee_after": 10,
+        "legendary_guarantee_after": 40
+      },
+      "emotional_modifiers": {
+        "anticipation_boost": 1.6,
+        "frustration_threshold": 1,
+        "satisfaction_multiplier": 1.5,
+        "regret_accumulation_rate": 0.6
+      }
+    },
+    "epic_pack": {
+      "pack_id": "epic_001",
+      "name": "Epic Pack",
+      "cost": {
+        "coins": 0,
+        "gems": 300
+      },
+      "guaranteed_cards": 7,
+      "drop_rates": {
+        "common": 0.15,
+        "uncommon": 0.35,
+        "rare": 0.30,
+        "epic": 0.20,
+        "legendary": 0.00
+      },
+      "pity_rules": {
+        "enabled": true,
+        "rare_guarantee_after": 1,
+        "epic_guarantee_after": 5,
+        "legendary_guarantee_after": 20
+      },
+      "special_modifiers": [
+        "guaranteed_rare_minimum"
+      ],
+      "emotional_modifiers": {
+        "anticipation_boost": 2.0,
+        "frustration_threshold": 1,
+        "satisfaction_multiplier": 2.0,
+        "regret_accumulation_rate": 0.4
+      }
+    }
+  },
+  "rarity_tiers": {
+    "common": {
+      "tier_id": "common",
+      "display_name": "Common",
+      "base_xp": 10,
+      "dust_value": 5,
+      "dupe_xp": 10,
+      "dupe_dust": 5,
+      "emotion_impact": {
+        "regret": 0.5,
+        "disappointment": 0.3,
+        "fatigue": 0.2
+      }
+    },
+    "uncommon": {
+      "tier_id": "uncommon",
+      "display_name": "Uncommon", 
+      "base_xp": 20,
+      "dust_value": 10,
+      "dupe_xp": 20,
+      "dupe_dust": 10,
+      "emotion_impact": {
+        "curiosity": 0.5,
+        "hope": 0.3
+      }
+    },
+    "rare": {
+      "tier_id": "rare",
+      "display_name": "Rare",
+      "base_xp": 50,
+      "dust_value": 20,
+      "dupe_xp": 50,
+      "dupe_dust": 20,
+      "emotion_impact": {
+        "satisfaction": 1.5,
+        "hope": 1.0,
+        "regret": -2.0
+      }
+    },
+    "epic": {
+      "tier_id": "epic",
+      "display_name": "Epic", 
+      "base_xp": 100,
+      "dust_value": 40,
+      "dupe_xp": 100,
+      "dupe_dust": 40,
+      "emotion_impact": {
+        "satisfaction": 2.0,
+        "excitement": 1.5,
+        "motivation": 1.0
+      }
+    },
+    "legendary": {
+      "tier_id": "legendary",
+      "display_name": "Legendary",
+      "base_xp": 200,
+      "dust_value": 100,
+      "dupe_xp": 200,
+      "dupe_dust": 100,
+      "emotion_impact": {
+        "satisfaction": 3.0,
+        "excitement": 2.5,
+        "motivation": 2.0,
+        "social_validation": 1.5
+      }
+    }
+  },
+  "xp_progression_system": {
+    "tier_1": {
+      "max_level": 5,
+      "xp_per_level": 50,
+      "total_xp_required": 250,
+      "upgrade_cost_coins": 500,
+      "emotional_rewards": {
+        "satisfaction": 1.0,
+        "motivation": 0.5
+      }
+    },
+    "tier_2": {
+      "max_level": 7,
+      "xp_per_level": 75,
+      "total_xp_required": 525,
+      "upgrade_cost_coins": 1000,
+      "emotional_rewards": {
+        "satisfaction": 1.2,
+        "motivation": 0.8
+      }
+    },
+    "tier_3": {
+      "max_level": 10,
+      "xp_per_level": 100,
+      "total_xp_required": 1000,
+      "upgrade_cost_coins": 2000,
+      "emotional_rewards": {
+        "satisfaction": 1.5,
+        "motivation": 1.0
+      }
+    },
+    "tier_4": {
+      "max_level": 15,
+      "xp_per_level": 150,
+      "total_xp_required": 2250,
+      "upgrade_cost_coins": 4000,
+      "emotional_rewards": {
+        "satisfaction": 2.0,
+        "motivation": 1.5
+      }
+    },
+    "tier_5": {
+      "max_level": 20,
+      "xp_per_level": 200,
+      "total_xp_required": 4000,
+      "upgrade_cost_coins": 8000,
+      "emotional_rewards": {
+        "satisfaction": 2.5,
+        "motivation": 2.0
+      }
+    }
+  },
+  "emotional_acquisition_loop": {
+    "phases": {
+      "entry_hook": {
+        "emotional_goal": "Spark curiosity",
+        "system_feedback": "Shows 'Rare in X Packs'",
+        "target_emotions": {
+          "curiosity": 4.0,
+          "hope": 3.0
+        },
+        "emotional_curve": "moderate_rise",
+        "duration_target_seconds": 15
+      },
+      "early_pulls": {
+        "emotional_goal": "Build tension",
+        "system_feedback": "No spike, streak builds",
+        "target_emotions": {
+          "frustration": 3.0,
+          "hope": 2.0
+        },
+        "emotional_curve": "tension_build",
+        "duration_target_seconds": 45
+      },
+      "hope_ramp": {
+        "emotional_goal": "Sustain engagement",
+        "system_feedback": "Uncommon/Rare appears",
+        "target_emotions": {
+          "hope": 6.0,
+          "social_envy": 2.0
+        },
+        "emotional_curve": "hope_climb",
+        "duration_target_seconds": 30
+      },
+      "reward_spike": {
+        "emotional_goal": "Deliver emotional peak",
+        "system_feedback": "Animations, haptics, social prompt",
+        "target_emotions": {
+          "satisfaction": 7.0,
+          "excitement": 8.0,
+          "social_validation": 1.5
+        },
+        "emotional_curve": "sharp_peak",
+        "duration_target_seconds": 12
+      },
+      "re_evaluation": {
+        "emotional_goal": "Reassess value",
+        "system_feedback": "Shows drop chart, team XP impact",
+        "target_emotions": {
+          "satisfaction": 6.0,
+          "curiosity": 5.0
+        },
+        "emotional_curve": "stabilize_reflect",
+        "duration_target_seconds": 120
+      },
+      "exit_or_loop": {
+        "emotional_goal": "Retain/return player",
+        "system_feedback": "Sends '1 away' reminder, bonus offer",
+        "target_emotions": {
+          "motivation": 4.0,
+          "regret": 4.0
+        },
+        "emotional_curve": "decision_point",
+        "duration_target_seconds": 60
+      }
+    },
+    "emotional_pacing_goals": {
+      "target_positive_ratio": 0.6,
+      "target_negative_ratio": 0.4,
+      "time_between_peaks_minutes": 4,
+      "pity_trigger_negative_phases": 2
+    }
+  },
+  "emotional_trigger_mapping": {
+    "common_streak_3": {
+      "detection_condition": "pull_streak >= 3 AND rarity == common",
+      "emotions_affected": {
+        "regret": 1.5,
+        "fatigue": 0.5
+      },
+      "system_response": "boost_odds_silently",
+      "response_parameters": {
+        "odds_multiplier": 1.3,
+        "flag_pack_hot": true
+      }
+    },
+    "epic_legendary_pull": {
+      "detection_condition": "rarity IN [epic, legendary]",
+      "emotions_affected": {
+        "satisfaction": 2.0,
+        "excitement": 1.5
+      },
+      "system_response": "trigger_celebration_sequence",
+      "response_parameters": {
+        "animation_duration": 3,
+        "haptic_intensity": "strong",
+        "social_share_prompt": true
+      }
+    },
+    "dupe_upgrade_activation": {
+      "detection_condition": "dupe_xp_triggers_upgrade == true",
+      "emotions_affected": {
+        "satisfaction": 1.5,
+        "curiosity": 1.0
+      },
+      "system_response": "show_upgrade_summary",
+      "response_parameters": {
+        "highlight_progress": true
+      }
+    },
+    "session_fatigue": {
+      "detection_condition": "session_duration > 10 AND interaction_idle_time > 30",
+      "emotions_affected": {
+        "fatigue": 1.0
+      },
+      "system_response": "suggest_break_or_bonus",
+      "response_parameters": {
+        "break_message": "Take a breather! Your next pack will have better odds.",
+        "return_bonus_multiplier": 1.2
+      }
+    },
+    "social_exposure": {
+      "detection_condition": "viewed_leaderboard OR viewed_shared_result",
+      "emotions_affected": {
+        "social_envy": 1.5
+      },
+      "system_response": "recommend_event_booster",
+      "response_parameters": {
+        "better_odds_multiplier": 1.4,
+        "time_limited_minutes": 30
+      }
+    },
+    "missed_limited_offer": {
+      "detection_condition": "pack_expired WITHOUT purchase",
+      "emotions_affected": {
+        "regret": 2.0,
+        "fomo_anxiety": 2.0
+      },
+      "system_response": "show_redemption_bonus",
+      "response_parameters": {
+        "revival_token_cost": 50,
+        "extended_time_minutes": 15
+      }
+    },
+    "repeated_dupe_pulls": {
+      "detection_condition": "session_dupes >= 2",
+      "emotions_affected": {
+        "regret": 2.0,
+        "frustration": 2.0
+      },
+      "system_response": "offer_dupe_conversion_bonus",
+      "response_parameters": {
+        "xp_multiplier": 1.5,
+        "dust_bonus": true
+      }
+    },
+    "player_shares_pull": {
+      "detection_condition": "share_button_used == true",
+      "emotions_affected": {
+        "satisfaction": 1.0,
+        "social_validation": 0.5
+      },
+      "system_response": "display_social_streak_badge"
+    },
+    "session_without_rare": {
+      "detection_condition": "pulls >= 10 AND no_rare_plus",
+      "emotions_affected": {
+        "disappointment": 2.5,
+        "fatigue": 1.0
+      },
+      "system_response": "trigger_pity_or_due_prompt",
+      "response_parameters": {
+        "show_pity_bar": true,
+        "you_are_due_message": true
+      }
+    },
+    "high_ces_burnout": {
+      "detection_condition": "cumulative_emotion_score < -6",
+      "emotions_affected": {
+        "all_negative": "maintain"
+      },
+      "system_response": "trigger_cooldown_suggestion",
+      "response_parameters": {
+        "upcoming_bonus_reminder": true
+      }
+    }
+  },
+  "emotional_state_tracker": {
+    "tracked_emotions": {
+      "regret": {
+        "range": [0.0, 10.0],
+        "decay_condition": "rare_plus_pull OR share_dupe_upgrade",
+        "decay_rate": -2.0
+      },
+      "satisfaction": {
+        "range": [0.0, 10.0],
+        "decay_condition": "no_reward_or_share_2_sessions",
+        "decay_rate": -2.0
+      },
+      "frustration": {
+        "range": [0.0, 10.0],
+        "decay_condition": "xp_multiplier OR dupe_bonus_received",
+        "decay_rate": -1.5
+      },
+      "fatigue": {
+        "range": [0.0, 10.0],
+        "decay_condition": "24h_logout OR session_pause",
+        "decay_rate": -1.5
+      },
+      "social_envy": {
+        "range": [0.0, 10.0],
+        "decay_condition": "2_sessions_no_leaderboard_exposure",
+        "decay_rate": -1.0
+      },
+      "curiosity": {
+        "range": [0.0, 10.0],
+        "decay_condition": "natural_time_decay",
+        "decay_rate": -0.5
+      },
+      "hope": {
+        "range": [0.0, 10.0],
+        "decay_condition": "pity_pull OR animation_hint",
+        "decay_rate": -1.0
+      },
+      "disappointment": {
+        "range": [0.0, 10.0],
+        "decay_condition": "next_rare_plus_pull",
+        "decay_rate": -3.0
+      },
+      "motivation": {
+        "range": [0.0, 10.0],
+        "decay_condition": "session_end_without_progress",
+        "decay_rate": -1.0
+      },
+      "excitement": {
+        "range": [0.0, 10.0],
+        "decay_condition": "natural_time_decay_fast",
+        "decay_rate": -2.0
+      },
+      "fomo_anxiety": {
+        "range": [0.0, 10.0],
+        "decay_condition": "purchase_made OR event_extended",
+        "decay_rate": -2.5
+      },
+      "social_validation": {
+        "range": [0.0, 10.0],
+        "decay_condition": "natural_time_decay",
+        "decay_rate": -1.0
+      }
+    },
+    "ces_calculation": {
+      "formula": "(regret + fatigue + frustration + social_envy + disappointment + fomo_anxiety) - (satisfaction + motivation + excitement + social_validation)",
+      "intervention_thresholds": {
+        "cooldown_suggestion": -6.0,
+        "surprise_booster": -4.0,
+        "engagement_boost": -2.0
+      }
+    },
+    "crp_integration": {
+      "formula": "(0.4 × regret) + (0.3 × fatigue) + (0.2 × social_envy) + (0.1 × disappointment) - (0.3 × social_validation)",
+      "intervention_thresholds": {
+        "surprise_booster": 0.75,
+        "cooldown_suggestion": 0.85,
+        "churn_flag": 0.90
+      }
+    }
+  },
+  "emotional_hooks": {
+    "regret_threshold_4": {
+      "game_response": "show_revive_opportunity_banner",
+      "description": "Display revival banner for expired/dupe redemption"
+    },
+    "satisfaction_threshold_3_5": {
+      "game_response": "trigger_victory_glow",
+      "description": "Enhanced pack animation with social CTA"
+    },
+    "fatigue_threshold_3": {
+      "game_response": "display_take_breather_prompt",
+      "description": "Logout bonus on return"
+    },
+    "social_envy_threshold_3": {
+      "game_response": "offer_leaderboard_exclusive_pack",
+      "description": "Pack styled like top player pulls"
+    },
+    "frustration_threshold_4_5": {
+      "game_response": "unlock_dupe_conversion_interface",
+      "description": "Increase odds silently"
+    },
+    "curiosity_threshold_4": {
+      "game_response": "reveal_hidden_pack_odds",
+      "description": "Show simulation tool or odds preview"
+    },
+    "hope_threshold_3": {
+      "game_response": "trigger_silhouette_teaser",
+      "description": "Preview next Rare+ opportunity"
+    },
+    "disappointment_threshold_3_5": {
+      "game_response": "display_you_are_due_prompt",
+      "description": "Mini pity bar UI"
+    },
+    "motivation_threshold_3_5": {
+      "game_response": "surface_challenge_ladder",
+      "description": "Pull X for reward Y challenges"
+    }
+  }
+}

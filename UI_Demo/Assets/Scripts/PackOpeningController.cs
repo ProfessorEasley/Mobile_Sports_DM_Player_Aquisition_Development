@@ -10,57 +10,59 @@ public class PackOpeningController : MonoBehaviour
     public GameObject dropHistoryPanel;
 
     [Header("Card Slots")]
-    public Image[] cardImages; // Assign Card1–Card5 here in Inspector
+    public Image[] cardImages; // Assign Card1–CardN here in Inspector
 
     [Header("Settings")]
-    public string packType = "basic_pack";
-    
+    public string packType = "bronze_pack"; // updated default
+
     [Header("References")]
     public DropHistoryController dropHistoryController;
-  void Start()
-  {
-    continueButton.onClick.AddListener(() => {
-        packPanel.SetActive(false);
-        dropHistoryPanel.SetActive(true);
 
-        dropHistoryController.RefreshDropHistory(); // Safe direct call
-    });
-  }
+    void Start()
+    {
+        continueButton.onClick.AddListener(() =>
+        {
+            packPanel.SetActive(false);
+            dropHistoryPanel.SetActive(true);
+            dropHistoryController.RefreshDropHistory();
+        });
+    }
+    public void OpenPackOfType(string key)
+    {
+        packType = key;   // e.g., "silver_pack"
+        OpenPack();
+    }
+    public void OpenPack()
+    {
+        var mgr = DropConfigManager.Instance;
+        var rarities = mgr.PullCardRarities(packType, out bool pityTriggered, out string pityType);
 
-  public void OpenPack()
-  {
-      List<string> rarities = DropConfigManager.Instance.PullCardRarities(packType);
-      Debug.Log("Pulled " + rarities.Count + " cards");
+        Debug.Log($"Pulled {rarities.Count} cards. PityTriggered={pityTriggered}({pityType})");
 
-      for (int i = 0; i < cardImages.Length; i++)
-      {
-          if (i < rarities.Count)
-          {
-              string rarity = rarities[i].ToLower(); // normalize
-              Debug.Log($"Card {i + 1}: {rarity}");
-              cardImages[i].color = GetColorForRarity(rarity);
-          }
-          else
-          {
-              cardImages[i].color = Color.white; // fallback if not pulled
-          }
-      }
-  }
+        for (int i = 0; i < cardImages.Length; i++)
+        {
+            if (i < rarities.Count)
+            {
+                string rarity = rarities[i].ToLowerInvariant();
+                cardImages[i].color = GetColorForRarity(rarity);
+            }
+            else
+            {
+                cardImages[i].color = Color.white;
+            }
+        }
+    }
 
     private Color GetColorForRarity(string rarity)
     {
-    switch (rarity.ToLower())
-    {
-      // case "common": return new Color(0.7f, 0.7f, 0.7f);   // gray
-      // case "rare": return new Color(0.3f, 0.6f, 1.0f);      // blue
-      // case "epic": return new Color(0.7f, 0.3f, 1.0f);      // purple
-      // case "legendary": return new Color(1.0f, 0.85f, 0.1f); // gold
-      // default: return Color.white;
-        case "common":    return new Color32(150, 150, 150, 255); // dark gray
-        case "rare":      return new Color32(0, 112, 221, 255);   // strong blue
-        case "epic":      return new Color32(163, 53, 238, 255);  // strong purple
-        case "legendary": return new Color32(255, 204, 0, 255);   // gold/yellow
-        default:          return Color.white;
-      }
+        switch (rarity)
+        {
+            case "common":    return new Color32(150,150,150,255);
+            case "uncommon":  return new Color32(46,204,113,255); // green
+            case "rare":      return new Color32(0,112,221,255);
+            case "epic":      return new Color32(163,53,238,255);
+            case "legendary": return new Color32(255,204,0,255);
+            default:          return Color.white;
+        }
     }
 }
