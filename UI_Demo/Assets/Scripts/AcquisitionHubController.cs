@@ -5,7 +5,7 @@ using UnityEngine.UI;
 public class AcquisitionHubController : MonoBehaviour
 {
   public TMP_Text coinsText;
-  public TMP_Text emotionText;
+
   public Button   goToMarketButton;
   public Button   openPackButton;
   public GameObject hubPanel, marketPanel, packPanel;
@@ -15,9 +15,8 @@ public class AcquisitionHubController : MonoBehaviour
 
   void Start()
   {
-    // Show placeholder currency & neutral emotion (hook up a real wallet later)
-    coinsText.text = "Coins: —";
-    emotionText.text = "Emotion: Neutral";
+    // Show placeholder currency 
+    coinsText.text = "Coins: 1200";
 
     goToMarketButton.onClick.AddListener(() => {
       hubPanel.SetActive(false);

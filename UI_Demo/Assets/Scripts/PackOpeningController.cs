@@ -64,6 +64,22 @@ public class PackOpeningController : MonoBehaviour
 
         BuildOrReuseCards(rarities.Count);
 
+        // Send to emotional system & hooks
+        EmotionalStateManager.Instance?.HandleOutcomeEvent(rarities, pityTriggered, pityType);
+        HookOrchestrator.Instance?.TryTriggerOutcomeHooks(rarities);
+
+        // Log to telemetry
+        TelemetryLogger.Instance?.LogPull(
+            packType,
+            packType,
+            DropConfigManager.Instance.config.pack_types[packType].cost,
+            rarities,
+            0, 0, 0,
+            pityTriggered, pityType
+        );
+
+
+
         // apply visuals
         for (int i = 0; i < _cards.Count; i++)
         {

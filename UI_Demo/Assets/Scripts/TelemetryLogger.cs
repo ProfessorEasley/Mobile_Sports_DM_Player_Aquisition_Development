@@ -25,69 +25,91 @@ public class TelemetryLogger : MonoBehaviour
     // ---------- Data shapes ----------
     [Serializable] public class CostPaid { public int coins; public int gems; }
 
-    [Serializable] public class PackInfo {
+    [Serializable]
+    public class PackInfo
+    {
         public string pack_type;      // config key, e.g., "gold_pack"
         public string pack_id;        // e.g., "gold_001"
         public CostPaid cost_paid;    // what was actually paid
         public string purchase_method; // "coins" | "gems" | "free" | "reward"
     }
 
-    [Serializable] public class EmotionImpact {
+    [Serializable]
+    public class EmotionImpact
+    {
         public float regret, satisfaction, frustration, excitement;
     }
 
-    [Serializable] public class PullResult
+    [Serializable]
+    public class PullResult
     {
-        public string card_id  = "unknown";
+        public string card_id = "unknown";
         public string card_name = "unknown";
         public string rarity;
-        public bool   is_duplicate = false;
-        public int    xp_gained;
-        public int    dust_gained = 0;
+        public bool is_duplicate = false;
+        public int xp_gained;
+        public int dust_gained = 0;
         public EmotionImpact emotion_impact;    // NEW
     }
 
-    [Serializable] public class PityStateLog {
+    [Serializable]
+    public class PityStateLog
+    {
         public int pulls_since_rare;
         public int pulls_since_epic;
         public int pulls_since_legendary;
         public bool pity_triggered;
         public string pity_type;
     }
+    [Serializable] public class HookExecutionLog { public List<HookExec> items = new List<HookExec>(); }
+    [Serializable] public class HookExec
+    {
+        public string hook_id;
+        public long   timestamp;
+        public string reason_if_blocked; // null if fired
+        public bool   fired;
+        public string context;           // optional: "outcome|drought|social"
+    }
 
     // --- MVP hook integration (light stub to match schema, safe to leave empty) ---
     [Serializable] public class HookExecutionRef { public string hook_id; public long timestamp; public string result; }
     [Serializable] public class SessionCaps { public int orientation_ping, safety_cushion, npc_audio_feedback, music_crescendo, impact_accent; }
     [Serializable] public class HookState { public long global_quiet_until; public SessionCaps session_caps_remaining = new SessionCaps(); }
-    [Serializable] public class HookIntegrationLog {
+    [Serializable]
+    public class HookIntegrationLog
+    {
         public List<HookExecutionRef> hooks_triggered_this_session = new List<HookExecutionRef>();
         public HookState current_hook_state = new HookState();
     }
     // ------------------------------------------------------------------------------
 
-    [Serializable] public class EmotionalState {
+    [Serializable]
+    public class EmotionalState
+    {
         public float regret, satisfaction, frustration, fatigue, social_envy, curiosity, hope, disappointment, motivation, excitement, fomo_anxiety, social_validation;
         public float cumulative_emotion_score; public int negative_streak_duration; public float churn_risk_predictor;
     }
 
-    [Serializable] public class AcquisitionLoopState {
+    [Serializable]
+    public class AcquisitionLoopState
+    {
         public string current_phase = "early_pulls";
-        public int    phase_duration = 0;
+        public int phase_duration = 0;
         public string phase_emotional_curve = "tension_build";
         public string[] trigger_conditions_met = Array.Empty<string>();
         public string[] system_responses_applied = Array.Empty<string>();
         public float emotional_pacing_score = 0.0f;
-        public int   time_since_last_peak = 0;
+        public int time_since_last_peak = 0;
     }
 
     [Serializable]
     public class PackPullLog
     {
         public string event_id;
-        public long   timestamp;
+        public long timestamp;
         public string session_id;
         public string player_id;
-        public int    player_level;
+        public int player_level;
 
         public PackInfo pack_info;
         public List<PullResult> pull_results;
@@ -115,9 +137,11 @@ public class TelemetryLogger : MonoBehaviour
 
         if (File.Exists(logFilePath))
         {
-            try {
+            try
+            {
                 cached = JsonConvert.DeserializeObject<LogWrapper>(File.ReadAllText(logFilePath)) ?? new LogWrapper();
-            } catch { cached = new LogWrapper(); }
+            }
+            catch { cached = new LogWrapper(); }
         }
         else
         {
@@ -142,23 +166,25 @@ public class TelemetryLogger : MonoBehaviour
 
         var ev = new PackPullLog
         {
-            event_id   = $"pull_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N").Substring(0,6)}",
-            timestamp  = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            event_id = $"pull_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N").Substring(0, 6)}",
+            timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             session_id = PlayerPrefs.GetString("session_id", $"session_{SystemInfo.deviceUniqueIdentifier}_{DateTime.UtcNow:yyyyMMdd}"),
-            player_id  = PlayerPrefs.GetString("player_id", SystemInfo.deviceUniqueIdentifier),
+            player_id = PlayerPrefs.GetString("player_id", SystemInfo.deviceUniqueIdentifier),
             player_level = PlayerPrefs.GetInt("player_level", 1),
 
-            pack_info = new PackInfo {
+            pack_info = new PackInfo
+            {
                 pack_type = packTypeKey,
-                pack_id   = packId,
+                pack_id = packId,
                 cost_paid = new CostPaid { coins = costFromConfig?.coins ?? 0, gems = costFromConfig?.gems ?? 0 },
                 purchase_method = (costFromConfig != null && costFromConfig.coins > 0) ? "coins"
-                                  : (costFromConfig != null && costFromConfig.gems  > 0) ? "gems"
+                                  : (costFromConfig != null && costFromConfig.gems > 0) ? "gems"
                                   : "free"
             },
 
             pull_results = new List<PullResult>(),
-            pity_state = new PityStateLog {
+            pity_state = new PityStateLog
+            {
                 pulls_since_rare = pullsSinceRare,
                 pulls_since_epic = pullsSinceEpic,
                 pulls_since_legendary = pullsSinceLegendary,
@@ -183,10 +209,10 @@ public class TelemetryLogger : MonoBehaviour
                 {
                     impact = new EmotionImpact
                     {
-                        regret        = tier.emotion_impact.TryGetValue("regret", out var rg) ? rg : 0f,
-                        satisfaction  = tier.emotion_impact.TryGetValue("satisfaction", out var sa) ? sa : 0f,
-                        frustration   = tier.emotion_impact.TryGetValue("frustration", out var fr) ? fr : 0f,
-                        excitement    = tier.emotion_impact.TryGetValue("excitement", out var ex) ? ex : 0f
+                        regret = tier.emotion_impact.TryGetValue("regret", out var rg) ? rg : 0f,
+                        satisfaction = tier.emotion_impact.TryGetValue("satisfaction", out var sa) ? sa : 0f,
+                        frustration = tier.emotion_impact.TryGetValue("frustration", out var fr) ? fr : 0f,
+                        excitement = tier.emotion_impact.TryGetValue("excitement", out var ex) ? ex : 0f
                     };
                 }
             }
@@ -202,7 +228,7 @@ public class TelemetryLogger : MonoBehaviour
         if (verboseLogging)
         {
             string rarStr = (rarities.Count > 0) ? string.Join(", ", rarities) : "(none)";
-            Debug.Log($"[Telemetry] {packTypeKey} → [{rarStr}] | pity={pityTriggered}:{pityType ?? "-"} | paid c={ev.pack_info.cost_paid.coins} g={ev.pack_info.cost_paid.gems} | logs={cached.logs.Count}");
+            // Debug.Log($"[Telemetry] {packTypeKey} → [{rarStr}] | pity={pityTriggered}:{pityType ?? "-"} | paid c={ev.pack_info.cost_paid.coins} g={ev.pack_info.cost_paid.gems} | logs={cached.logs.Count}");
         }
 
         OnPullLogged?.Invoke(ev);
@@ -251,4 +277,23 @@ public class TelemetryLogger : MonoBehaviour
         foreach (var pr in last.pull_results) rar.Add(pr.rarity);
         Debug.Log($"[Telemetry] Last pull → {last.pack_info.pack_type} [{string.Join(", ", rar)}] pity={last.pity_state.pity_triggered}:{last.pity_state.pity_type}");
     }
+
+    
+
+    // Add to PackPullLog if you want per-pull, or keep a session-level log. For simplicity, add session-level:
+    private HookExecutionLog hookExecLog = new HookExecutionLog();
+
+    public void LogHookExecution(string hookId, bool fired, string reasonIfBlocked, string context = null)
+    {
+        hookExecLog.items.Add(new HookExec {
+            hook_id = hookId,
+            fired   = fired,
+            reason_if_blocked = reasonIfBlocked,
+            context = context,
+            timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
+        if (verboseLogging)
+            Debug.Log($"[Hook] {hookId} fired={fired} reason={reasonIfBlocked ?? "-"} ctx={context}");
+    }
+
 }
