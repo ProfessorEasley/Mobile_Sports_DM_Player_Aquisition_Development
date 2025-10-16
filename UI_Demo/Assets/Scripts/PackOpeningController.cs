@@ -11,8 +11,8 @@ public class PackOpeningController : MonoBehaviour
     public GameObject dropHistoryPanel;
 
     [Header("Card UI")]
-    public Transform cardParent;      // container with GridLayoutGroup (or Vertical/Horizontal)
-    public GameObject cardPrefab;     // prefab with Image + (optional TMP_Text)
+    public Transform cardParent;    // Container with GridLayoutGroup
+    public GameObject cardPrefab;   // Prefab for individual card display
 
     [Header("Settings")]
     public string packType = "bronze_pack";
@@ -20,7 +20,7 @@ public class PackOpeningController : MonoBehaviour
     [Header("References")]
     public DropHistoryController dropHistoryController;
 
-    // pool/cache so we don’t GC churn every open
+    // Reusable pool to prevent unnecessary GC allocations
     private readonly List<GameObject> _cards = new List<GameObject>();
 
     void Start()
@@ -29,9 +29,9 @@ public class PackOpeningController : MonoBehaviour
         {
             continueButton.onClick.AddListener(() =>
             {
-                packPanel.SetActive(false);
-                dropHistoryPanel.SetActive(true);
-                if (dropHistoryController != null) dropHistoryController.RefreshDropHistory();
+                if (packPanel) packPanel.SetActive(false);
+                if (dropHistoryPanel) dropHistoryPanel.SetActive(true);
+                dropHistoryController?.RefreshDropHistory();
             });
         }
     }
@@ -47,7 +47,7 @@ public class PackOpeningController : MonoBehaviour
     {
         if (cardParent == null || cardPrefab == null)
         {
-            Debug.LogError("[PackOpening] cardParent/cardPrefab not assigned.");
+            Debug.LogError("[PackOpening] Missing references: cardParent or cardPrefab.");
             return;
         }
 
@@ -58,97 +58,83 @@ public class PackOpeningController : MonoBehaviour
             return;
         }
 
+        // Pull from config
         var rarities = mgr.PullCardRarities(packType, out bool pityTriggered, out string pityType);
-
         Debug.Log($"[PackOpening] {packType} → {rarities.Count} cards | pity={pityTriggered}:{pityType ?? "-"}");
 
         BuildOrReuseCards(rarities.Count);
 
-        // Send to emotional system & hooks
+        // 🔹 Emotional reaction (Phase 1: Satisfaction + Frustration only)
         EmotionalStateManager.Instance?.HandleOutcomeEvent(rarities, pityTriggered, pityType);
+
+        // 🔹 Hook orchestration (e.g., outcome_streak)
         HookOrchestrator.Instance?.TryTriggerOutcomeHooks(rarities);
 
-        // Log to telemetry
+        // 🔹 Log to telemetry
         TelemetryLogger.Instance?.LogPull(
             packType,
             packType,
             DropConfigManager.Instance.config.pack_types[packType].cost,
             rarities,
             0, 0, 0,
-            pityTriggered, pityType
+            pityTriggered,
+            pityType
         );
 
-
-
-        // apply visuals
+        // 🔹 Update card visuals
         for (int i = 0; i < _cards.Count; i++)
         {
             var go = _cards[i];
             if (i < rarities.Count)
             {
-                if (!go.activeSelf) go.SetActive(true);
+                go.SetActive(true);
                 SetCard(go, rarities[i]);
             }
-            else
-            {
-                go.SetActive(false);
-            }
+            else go.SetActive(false);
         }
 
-        // if you want the panel to pop open here:
-        if (packPanel != null) packPanel.SetActive(true);
-        if (dropHistoryPanel != null) dropHistoryPanel.SetActive(false);
+        // UI visibility management
+        if (packPanel) packPanel.SetActive(true);
+        if (dropHistoryPanel) dropHistoryPanel.SetActive(false);
 
-        // Rebuild layout so the grid looks crisp after re-activation
-        var rt = cardParent as RectTransform;
-        if (rt != null) LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+        // Rebuild layout to fix alignment after reactivation
+        if (cardParent is RectTransform rt)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
     }
 
+    // --- Helper Methods ---
     void BuildOrReuseCards(int needed)
     {
-        // create as many as needed
         while (_cards.Count < needed)
         {
             var go = Instantiate(cardPrefab, cardParent);
             go.SetActive(false);
             _cards.Add(go);
         }
-        // leave extras in the pool (we toggle them off)
     }
 
     void SetCard(GameObject go, string rarityRaw)
     {
         string rarity = (rarityRaw ?? "common").ToLowerInvariant();
 
-        // Color / sprite on Image
         var img = go.GetComponentInChildren<Image>(true);
-        if (img != null)
-        {
-            img.color = GetColorForRarity(rarity);
-        }
+        if (img != null) img.color = GetColorForRarity(rarity);
 
-        // Optional label
         var tmp = go.GetComponentInChildren<TextMeshProUGUI>(true);
-        if (tmp != null)
-        {
-            tmp.text = rarity.ToUpper();
-        }
+        if (tmp != null) tmp.text = rarity.ToUpperInvariant();
 
-        // If you drop CardView on the prefab, also let it know:
         var view = go.GetComponent<CardView>();
         if (view != null) view.Apply(rarity);
     }
 
-    Color GetColorForRarity(string rarity)
-    {
-        switch (rarity)
+    Color GetColorForRarity(string rarity) =>
+        rarity switch
         {
-            case "common":    return new Color32(150,150,150,255);
-            case "uncommon":  return new Color32(46,204,113,255);
-            case "rare":      return new Color32(0,112,221,255);
-            case "epic":      return new Color32(163,53,238,255);
-            case "legendary": return new Color32(255,204,0,255);
-            default:          return Color.white;
-        }
-    }
+            "common"    => new Color32(150, 150, 150, 255),
+            "uncommon"  => new Color32(46, 204, 113, 255),
+            "rare"      => new Color32(0, 112, 221, 255),
+            "epic"      => new Color32(163, 53, 238, 255),
+            "legendary" => new Color32(255, 204, 0, 255),
+            _           => Color.white
+        };
 }
