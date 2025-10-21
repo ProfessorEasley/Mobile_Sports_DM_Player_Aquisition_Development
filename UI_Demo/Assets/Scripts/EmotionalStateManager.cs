@@ -1,44 +1,106 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
+using Newtonsoft.Json;
 
-/// Phase 1: Basic emotional state tracking for frustration and satisfaction.
-/// add envy later after implement leaderboard features.
+/// Phase 1 (Offline, Single Player)
+/// Handles basic emotional state tracking for Frustration and Satisfaction.
+/// Dynamically loads tuning constants from phase1_config.json in Resources or StreamingAssets.
 public class EmotionalStateManager : MonoBehaviour
 {
     public static EmotionalStateManager Instance;
 
-    [Header("Phase 1 Parameters")]
-    [Range(0.5f, 2.0f)] public float EF = 1.2f;        // Escalation Factor
-    [Range(0.5f, 1.0f)] public float softCapPct = 0.85f;
-    [Range(1.0f, 1.5f)] public float rareBoostCap = 1.20f; // +20% cap
+    [Header("Phase 1 Parameters (Loaded from JSON)")]
+    [Range(0.5f, 2.0f)] public float EF = 1.2f;               // Escalation factor
+    [Range(0.5f, 1.0f)] public float softCapPct = 0.85f;       // Soft-cap % of target
+    [Range(1.0f, 1.5f)] public float rareBoostCap = 1.20f;     // +20% cap for Rare+
+    public float baseFrustration = 5f;
+    public float baseSatisfaction = 2f;
+    public float baseDrought = 3f;
+    public float frustrationDecay = 1.5f;
+    public float satisfactionDecay = 2.0f;
 
     [Header("Emotions (0–10)")]
     [Range(0, 10)] public float frustration;
     [Range(0, 10)] public float satisfaction;
 
-    // Session-scoped counters / timers
-    int _streakCommons;       // Consecutive pulls with no Rare+
-    int _streakRarePlus;      // Consecutive pulls with Rare+
-    int _droughtCounter;      // Used if time since last progress grows large
+    // --- Session-scoped counters / timers ---
+    int _streakCommons;
+    int _streakRarePlus;
+    int _droughtCounter;
 
-    // Last activity/time markers
     float _tsLastProgress;
     float _tsLastAny;
 
-    // Decay gatekeepers
     int _sessionsWithoutShareOrRare = 0;
+
+    private const string ConfigFileName = "phase1_config.json";
+
+    [Serializable]
+    private class Phase1Config
+    {
+        public float EF = 1.2f;
+        public float softCapPct = 0.85f;
+        public float rareBoostCap = 1.2f;
+        public float baseFrustration = 5f;
+        public float baseSatisfaction = 2f;
+        public float baseDrought = 3f;
+        public float frustrationDecay = 1.5f;
+        public float satisfactionDecay = 2.0f;
+    }
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         DontDestroyOnLoad(gameObject);
+
+        LoadPhase1Config();
         ResetSession();
+    }
+
+    /// <summary>Load parameters from phase1_config.json (Resources or StreamingAssets).</summary>
+    void LoadPhase1Config()
+    {
+        try
+        {
+            // 1️⃣ Try Resources first
+            TextAsset configText = Resources.Load<TextAsset>("phase1_config");
+
+            // 2️⃣ Fallback to StreamingAssets (useful for standalone builds)
+            if (configText == null)
+            {
+                string altPath = Path.Combine(Application.streamingAssetsPath, ConfigFileName);
+                if (File.Exists(altPath))
+                    configText = new TextAsset(File.ReadAllText(altPath));
+            }
+
+            if (configText == null)
+            {
+                Debug.LogWarning("[Phase1Config] No config file found. Using defaults.");
+                return;
+            }
+
+            var cfg = JsonConvert.DeserializeObject<Phase1Config>(configText.text);
+            if (cfg != null)
+            {
+                EF = cfg.EF;
+                softCapPct = cfg.softCapPct;
+                rareBoostCap = cfg.rareBoostCap;
+                baseFrustration = cfg.baseFrustration;
+                baseSatisfaction = cfg.baseSatisfaction;
+                baseDrought = cfg.baseDrought;
+                frustrationDecay = cfg.frustrationDecay;
+                satisfactionDecay = cfg.satisfactionDecay;
+
+                Debug.Log($"[Phase1Config] ✅ Loaded: EF={EF}, softCap={softCapPct}, rareBoost={rareBoostCap}");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Phase1Config] ❌ Failed to load config: {e.Message}");
+        }
     }
 
     public void ResetSession()
@@ -51,9 +113,11 @@ public class EmotionalStateManager : MonoBehaviour
         _sessionsWithoutShareOrRare = 0;
     }
 
-    // ------------ PUBLIC API ------------
+    // ----------------------------------------------------
+    // PUBLIC API
+    // ----------------------------------------------------
 
-    /// Called after a pack is opened with its rarities.
+    /// <summary>Called after a pack is opened with its rarities.</summary>
     public EmotionDeltaResult HandleOutcomeEvent(List<string> rarities, bool pity, string pityType)
     {
         _tsLastAny = Time.time;
@@ -61,7 +125,7 @@ public class EmotionalStateManager : MonoBehaviour
         // "Progress" = got a Rare or higher
         bool hasRarePlus = rarities.Exists(r =>
         {
-            var k = (r ?? "common").ToLowerInvariant();
+            string k = (r ?? "common").ToLowerInvariant();
             return k == "rare" || k == "epic" || k == "legendary";
         });
 
@@ -78,74 +142,64 @@ public class EmotionalStateManager : MonoBehaviour
             _streakRarePlus = 0;
         }
 
-        // Reset or increment decay counters
-        if (hasRarePlus)
-            _sessionsWithoutShareOrRare = 0;
-        else
-            _sessionsWithoutShareOrRare++;
+        _sessionsWithoutShareOrRare = hasRarePlus ? 0 : _sessionsWithoutShareOrRare + 1;
 
         var deltas = new EmotionDeltaResult();
 
-        // COMMON streak → frustration
+        // Common streak → frustration
         if (_streakCommons >= 2)
         {
-            float baseF = 5f;
             float efPow = Mathf.Pow(EF, _streakCommons - 1);
-            deltas.frustration += baseF * efPow;
+            deltas.frustration += baseFrustration * efPow;
         }
 
-        // RARE+ streak → satisfaction
+        // Rare+ streak → satisfaction
         if (_streakRarePlus >= 1)
         {
-            float baseS = 2f;
             float efPow = Mathf.Pow(EF, Mathf.Max(0, _streakRarePlus - 1));
-            float delta = baseS * efPow;
-            delta = ApplyRarePlusCap(delta);
-            deltas.satisfaction += delta;
+            float delta = baseSatisfaction * efPow;
+            deltas.satisfaction += ApplyRarePlusCap(delta);
         }
 
-        // Apply decay and update
         ApplyPhase1Decay(hasRarePlus);
         ApplyDeltasWithSoftCap(deltas);
 
         return deltas;
     }
 
-    /// Called periodically to simulate frustration increase from long gaps (drought).
+    /// <summary>Increases frustration if player has long gaps without progress.</summary>
     public EmotionDeltaResult OnDroughtTick()
     {
         _tsLastAny = Time.time;
         _droughtCounter++;
 
         var deltas = new EmotionDeltaResult();
-        float baseF = 3f;
         float efPow = Mathf.Pow(EF, Mathf.Max(0, _droughtCounter - 1));
-        deltas.frustration += baseF * efPow;
+        deltas.frustration += baseDrought * efPow;
 
-        ApplyPhase1Decay(hasRarePlus: false);
+        ApplyPhase1Decay(false);
         ApplyDeltasWithSoftCap(deltas);
         return deltas;
     }
 
-    // ------------ HELPERS ------------
+    // ----------------------------------------------------
+    // INTERNAL HELPERS
+    // ----------------------------------------------------
 
     float ApplyRarePlusCap(float deltaPositive)
     {
-        if (deltaPositive <= 0f) return deltaPositive;
-        return Mathf.Min(deltaPositive * rareBoostCap, 10f);
+        return deltaPositive <= 0f ? deltaPositive : Mathf.Min(deltaPositive * rareBoostCap, 10f);
     }
 
     void ApplyPhase1Decay(bool hasRarePlus)
     {
-        // Frustration: −1.5 when dupe-bonus or XP multiplier fires (call externally)
-        // Satisfaction: −2.0 if no Rare+ for two sessions
         if (!hasRarePlus && _sessionsWithoutShareOrRare >= 2)
-            satisfaction = Mathf.Max(0f, satisfaction - 2.0f);
+            satisfaction = Mathf.Max(0f, satisfaction - satisfactionDecay);
     }
 
     public void DecayFrustrationBonus()
     {
-        frustration = Mathf.Max(0f, frustration - 1.5f);
+        frustration = Mathf.Max(0f, frustration - frustrationDecay);
     }
 
     void ApplyDeltasWithSoftCap(EmotionDeltaResult d)
@@ -156,7 +210,11 @@ public class EmotionalStateManager : MonoBehaviour
         frustration = SoftCap(frustration, tgtF, softCapPct);
         satisfaction = SoftCap(satisfaction, tgtS, softCapPct);
 
-        Debug.Log($"[Emotion Update] Frustration={frustration:F2} Satisfaction={satisfaction:F2}");
+        // Final clamp to safe range
+        frustration = Mathf.Clamp(frustration, 0f, 10f);
+        satisfaction = Mathf.Clamp(satisfaction, 0f, 10f);
+
+        Debug.Log($"[Emotion Update] Frustration={frustration:F2}  Satisfaction={satisfaction:F2}");
     }
 
     float SoftCap(float current, float target, float pct)
@@ -166,13 +224,11 @@ public class EmotionalStateManager : MonoBehaviour
         return Mathf.Min(target, maxStep);
     }
 
-    // Read-only snapshot
     public (float fr, float sa) Snapshot() => (frustration, satisfaction);
 
     public void BreakOutcomeStreaks()
     {
-        _streakCommons = 0;
-        _streakRarePlus = 0;
+        _streakCommons = _streakRarePlus = 0;
     }
 }
 

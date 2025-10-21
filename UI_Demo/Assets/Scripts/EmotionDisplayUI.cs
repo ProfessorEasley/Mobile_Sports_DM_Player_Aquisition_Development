@@ -1,6 +1,10 @@
 using UnityEngine;
 using TMPro;
 
+/// <summary>
+/// Displays real-time emotional state (Frustration & Satisfaction)
+/// with smooth transitions and color intensity based on emotion levels.
+/// </summary>
 public class EmotionDisplayUI : MonoBehaviour
 {
     [Header("Text References")]
@@ -16,36 +20,44 @@ public class EmotionDisplayUI : MonoBehaviour
 
     void Start()
     {
-        // Initialize displayed values with current snapshot
         if (EmotionalStateManager.Instance != null)
         {
-            var snap = EmotionalStateManager.Instance.Snapshot();
-            _displayFr = snap.fr;
-            _displaySa = snap.sa;
+            var (fr, sa) = EmotionalStateManager.Instance.Snapshot();
+            _displayFr = fr;
+            _displaySa = sa;
+        }
+        else
+        {
+            _displayFr = _displaySa = 0f;
         }
     }
 
     void Update()
     {
-        if (EmotionalStateManager.Instance == null) return;
+        var esm = EmotionalStateManager.Instance;
+        if (esm == null) return;
 
-        var (fr, sa) = EmotionalStateManager.Instance.Snapshot();
+        var (fr, sa) = esm.Snapshot();
 
-        // Smoothly interpolate toward current emotion state
+        // Smooth interpolation for UI readability
         _displayFr = Mathf.Lerp(_displayFr, fr, Time.deltaTime * lerpSpeed);
         _displaySa = Mathf.Lerp(_displaySa, sa, Time.deltaTime * lerpSpeed);
 
-        // Update UI Texts
-        if (frustrationText)
+        // Update texts (with null safety)
+        if (frustrationText != null)
         {
-            frustrationText.text = $"Frustration: {_displayFr:F1}";
-            frustrationText.color = Color.Lerp(Color.white, Color.red, _displayFr / 10f);
+            frustrationText.text = $"Frustration: {_displayFr:F2}";
+            float intensity = Mathf.InverseLerp(0f, 10f, _displayFr);
+            frustrationText.color = Color.Lerp(Color.white, Color.red, intensity);
+            frustrationText.alpha = Mathf.Clamp01(intensity + 0.3f); // small fade-in
         }
 
-        if (satisfactionText)
+        if (satisfactionText != null)
         {
-            satisfactionText.text = $"Satisfaction: {_displaySa:F1}";
-            satisfactionText.color = Color.Lerp(Color.white, Color.green, _displaySa / 10f);
+            satisfactionText.text = $"Satisfaction: {_displaySa:F2}";
+            float intensity = Mathf.InverseLerp(0f, 10f, _displaySa);
+            satisfactionText.color = Color.Lerp(Color.white, Color.green, intensity);
+            satisfactionText.alpha = Mathf.Clamp01(intensity + 0.3f);
         }
     }
 }

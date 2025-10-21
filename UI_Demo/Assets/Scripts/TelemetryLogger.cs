@@ -5,6 +5,11 @@ using UnityEngine;
 using Newtonsoft.Json;
 using CCAS.Config;
 
+/// <summary>
+/// Phase 1 Telemetry Logger
+/// Records pack pulls, pity state, emotional state (satisfaction + frustration),
+/// and hook execution data. Persists to JSON across sessions.
+/// </summary>
 public class TelemetryLogger : MonoBehaviour
 {
     public static TelemetryLogger Instance;
@@ -18,16 +23,18 @@ public class TelemetryLogger : MonoBehaviour
 
     public event Action<PackPullLog> OnPullLogged;
 
-    // ---------- Data Shapes ----------
+    // -------------------------------------------------------------------------
+    // Data Models
+    // -------------------------------------------------------------------------
     [Serializable] public class CostPaid { public int coins; public int gems; }
 
     [Serializable]
     public class PackInfo
     {
-        public string pack_type;        // e.g., "gold_pack"
-        public string pack_id;          // e.g., "gold_001"
-        public CostPaid cost_paid;      // what was actually paid
-        public string purchase_method;  // "coins" | "gems" | "free" | "reward"
+        public string pack_type;
+        public string pack_id;
+        public CostPaid cost_paid;
+        public string purchase_method;
     }
 
     [Serializable]
@@ -69,7 +76,7 @@ public class TelemetryLogger : MonoBehaviour
     [Serializable]
     public class HookExecutionLog
     {
-        public List<HookExec> items = new List<HookExec>();
+        public List<HookExec> items = new();
     }
 
     [Serializable]
@@ -101,27 +108,26 @@ public class TelemetryLogger : MonoBehaviour
         public PackInfo pack_info;
         public List<PullResult> pull_results;
         public PityStateLog pity_state;
-        public EmotionalState emotional_state = new EmotionalState();
-        public AcquisitionLoopState acquisition_loop_state = new AcquisitionLoopState();
-        public HookExecutionLog hook_execution = new HookExecutionLog();
+        public EmotionalState emotional_state = new();
+        public AcquisitionLoopState acquisition_loop_state = new();
+        public HookExecutionLog hook_execution = new();
     }
 
-    [Serializable]
-    private class LogWrapper
-    {
-        public List<PackPullLog> logs = new List<PackPullLog>();
-    }
+    [Serializable] private class LogWrapper { public List<PackPullLog> logs = new(); }
+    private LogWrapper cached = new();
 
-    private LogWrapper cached = new LogWrapper();
-
-    // ---------- Lifecycle ----------
+    // -------------------------------------------------------------------------
+    // Lifecycle
+    // -------------------------------------------------------------------------
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-
         DontDestroyOnLoad(gameObject);
-        logFilePath = Path.Combine(Application.persistentDataPath, "pull_history.json");
+
+        var dir = Path.Combine(Application.persistentDataPath, "Telemetry");
+        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+        logFilePath = Path.Combine(dir, "pull_history.json");
 
         if (File.Exists(logFilePath))
         {
@@ -129,15 +135,18 @@ public class TelemetryLogger : MonoBehaviour
             {
                 cached = JsonConvert.DeserializeObject<LogWrapper>(File.ReadAllText(logFilePath)) ?? new LogWrapper();
             }
-            catch
+            catch (Exception e)
             {
+                Debug.LogWarning($"[Telemetry] Failed to read log file: {e.Message}");
                 cached = new LogWrapper();
             }
         }
         else SaveFile();
     }
 
-    // ---------- Public API ----------
+    // -------------------------------------------------------------------------
+    // Main Logging API
+    // -------------------------------------------------------------------------
     public void LogPull(
         string packTypeKey,
         string packId,
@@ -149,101 +158,98 @@ public class TelemetryLogger : MonoBehaviour
         bool pityTriggered,
         string pityType)
     {
-        if (rarities == null) rarities = new List<string>();
-
-        var ev = new PackPullLog
+        try
         {
-            event_id = $"pull_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..6]}",
-            timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            session_id = PlayerPrefs.GetString("session_id", $"session_{SystemInfo.deviceUniqueIdentifier}_{DateTime.UtcNow:yyyyMMdd}"),
-            player_id = PlayerPrefs.GetString("player_id", SystemInfo.deviceUniqueIdentifier),
-            player_level = PlayerPrefs.GetInt("player_level", 1),
-            pack_info = new PackInfo
+            if (rarities == null) rarities = new();
+
+            var ev = new PackPullLog
             {
-                pack_type = packTypeKey,
-                pack_id = packId,
-                cost_paid = new CostPaid { coins = costFromConfig?.coins ?? 0, gems = costFromConfig?.gems ?? 0 },
-                purchase_method = (costFromConfig?.coins ?? 0) > 0 ? "coins" :
-                                  (costFromConfig?.gems ?? 0) > 0 ? "gems" : "free"
-            },
-            pull_results = new List<PullResult>(),
-            pity_state = new PityStateLog
-            {
-                pulls_since_rare = pullsSinceRare,
-                pulls_since_epic = pullsSinceEpic,
-                pulls_since_legendary = pullsSinceLegendary,
-                pity_triggered = pityTriggered,
-                pity_type = pityType
-            }
-        };
-
-
-
-
-        // Map emotion impact from config
-        var tiers = DropConfigManager.Instance?.config?.rarity_tiers;
-        foreach (var r in rarities)
-        {
-            int xp = 0;
-            EmotionImpact impact = null;
-
-            if (tiers != null && tiers.TryGetValue((r ?? "common").ToLowerInvariant(), out var tier))
-            {
-                xp = tier.base_xp;
-
-                if (tier.emotion_impact != null)
+                event_id = $"pull_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}".Substring(0, 30),
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                session_id = PlayerPrefs.GetString("session_id", $"session_{SystemInfo.deviceUniqueIdentifier}_{DateTime.UtcNow:yyyyMMdd}"),
+                player_id = PlayerPrefs.GetString("player_id", SystemInfo.deviceUniqueIdentifier),
+                player_level = PlayerPrefs.GetInt("player_level", 1),
+                pack_info = new PackInfo
                 {
-                    impact = new EmotionImpact
-                    {
-                        satisfaction = tier.emotion_impact.TryGetValue("satisfaction", out var sa) ? sa : 0f,
-                        frustration = tier.emotion_impact.TryGetValue("frustration", out var fr) ? fr : 0f
-                    };
+                    pack_type = packTypeKey,
+                    pack_id = packId,
+                    cost_paid = new CostPaid { coins = costFromConfig?.coins ?? 0, gems = costFromConfig?.gems ?? 0 },
+                    purchase_method = (costFromConfig?.coins ?? 0) > 0 ? "coins"
+                        : (costFromConfig?.gems ?? 0) > 0 ? "gems" : "free"
+                },
+                pull_results = new List<PullResult>(),
+                pity_state = new PityStateLog
+                {
+                    pulls_since_rare = pullsSinceRare,
+                    pulls_since_epic = pullsSinceEpic,
+                    pulls_since_legendary = pullsSinceLegendary,
+                    pity_triggered = pityTriggered,
+                    pity_type = pityType
                 }
+            };
+
+            // Add emotion impact per rarity
+            var tiers = DropConfigManager.Instance?.config?.rarity_tiers;
+            foreach (var r in rarities)
+            {
+                int xp = 0;
+                EmotionImpact impact = null;
+
+                if (tiers != null && tiers.TryGetValue((r ?? "common").ToLowerInvariant(), out var tier))
+                {
+                    xp = tier.base_xp;
+                    if (tier.emotion_impact != null)
+                    {
+                        impact = new EmotionImpact
+                        {
+                            satisfaction = tier.emotion_impact.TryGetValue("satisfaction", out var sa) ? sa : 0f,
+                            frustration = tier.emotion_impact.TryGetValue("frustration", out var fr) ? fr : 0f
+                        };
+                    }
+                }
+
+                ev.pull_results.Add(new PullResult
+                {
+                    rarity = r,
+                    xp_gained = xp,
+                    emotion_impact = impact
+                });
             }
 
-            ev.pull_results.Add(new PullResult { rarity = r, xp_gained = xp, emotion_impact = impact });
+            // Capture current emotional snapshot
+            if (EmotionalStateManager.Instance != null)
+            {
+                var (fr, sa) = EmotionalStateManager.Instance.Snapshot();
+                ev.emotional_state.satisfaction = sa;
+                ev.emotional_state.frustration = fr;
+                ev.emotional_state.cumulative_score = sa - fr;
+                ev.emotional_state.negative_streaks = fr > sa ? 1 : 0;
+            }
+
+            cached.logs.Add(ev);
+            if (cached.logs.Count > MaxLogs)
+                cached.logs.RemoveRange(0, cached.logs.Count - MaxLogs);
+
+            SaveFile();
+
+            if (verboseLogging)
+            {
+                string rarStr = rarities.Count > 0 ? string.Join(", ", rarities) : "(none)";
+                Debug.Log($"[Telemetry] Logged {packTypeKey} → [{rarStr}] | pity={pityTriggered}:{pityType ?? "-"} | logs={cached.logs.Count}");
+            }
+
+            OnPullLogged?.Invoke(ev);
         }
-
-        cached.logs.Add(ev);
-        if (cached.logs.Count > MaxLogs)
-            cached.logs.RemoveRange(0, cached.logs.Count - MaxLogs);
-
-        SaveFile();
-
-        if (verboseLogging)
+        catch (Exception e)
         {
-            string rarStr = rarities.Count > 0 ? string.Join(", ", rarities) : "(none)";
-            Debug.Log($"[Telemetry] {packTypeKey} → [{rarStr}] | pity={pityTriggered}:{pityType ?? "-"} | coins={ev.pack_info.cost_paid.coins} gems={ev.pack_info.cost_paid.gems}");
+            Debug.LogError($"[Telemetry] Error during LogPull: {e.Message}");
         }
-
-        OnPullLogged?.Invoke(ev);
     }
 
-    // ---------- Helpers ----------
-    private void SaveFile()
-    {
-        var json = JsonConvert.SerializeObject(cached, Formatting.Indented);
-        if ((System.Text.Encoding.UTF8.GetByteCount(json) / 1024f) > MaxFileSizeKB)
-        {
-            if (cached.logs.Count > 100)
-                cached.logs.RemoveRange(0, 100);
-            json = JsonConvert.SerializeObject(cached, Formatting.Indented);
-        }
-
-        try { File.WriteAllText(logFilePath, json); }
-        catch (Exception e) { Debug.LogError($"[Telemetry] Write failed: {e.Message}"); }
-    }
-
-    [ContextMenu("Clear Pull History")]
-    public void ClearLogFile()
-    {
-        cached = new LogWrapper();
-        SaveFile();
-        Debug.Log("🗑 [Telemetry] Cleared pull_history.json");
-    }
-
-    // ---------- Hook Logging ----------
-    private readonly HookExecutionLog hookExecLog = new HookExecutionLog();
+    // -------------------------------------------------------------------------
+    // Hook Logging
+    // -------------------------------------------------------------------------
+    private readonly HookExecutionLog hookExecLog = new();
 
     public void LogHookExecution(string hookId, bool fired, string reasonIfBlocked, string context = null)
     {
@@ -259,9 +265,37 @@ public class TelemetryLogger : MonoBehaviour
         if (verboseLogging)
             Debug.Log($"[Hook] {hookId} fired={fired} reason={reasonIfBlocked ?? "-"} ctx={context}");
     }
+
+    // -------------------------------------------------------------------------
+    // Utility / Persistence
+    // -------------------------------------------------------------------------
+    private void SaveFile()
+    {
+        try
+        {
+            var json = JsonConvert.SerializeObject(cached, Formatting.Indented);
+            if ((System.Text.Encoding.UTF8.GetByteCount(json) / 1024f) > MaxFileSizeKB && cached.logs.Count > 100)
+                cached.logs.RemoveRange(0, 100);
+
+            File.WriteAllText(logFilePath, JsonConvert.SerializeObject(cached, Formatting.Indented));
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Telemetry] Write failed: {e.Message}");
+        }
+    }
+
+    [ContextMenu("Clear Pull History")]
+    public void ClearLogFile()
+    {
+        cached = new LogWrapper();
+        SaveFile();
+        Debug.Log("🗑 [Telemetry] Cleared pull_history.json");
+    }
+
     public List<PackPullLog> GetRecent(int count)
     {
-        if (cached == null || cached.logs == null || cached.logs.Count == 0)
+        if (cached?.logs == null || cached.logs.Count == 0)
             return new List<PackPullLog>();
 
         count = Mathf.Max(1, count);

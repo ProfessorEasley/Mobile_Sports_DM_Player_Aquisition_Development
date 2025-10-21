@@ -4,6 +4,11 @@ using UnityEngine.UI;
 using TMPro;
 using CCAS.Config;
 
+/// <summary>
+/// Dynamically builds the Booster Market UI from the drop configuration.
+/// Handles pack purchasing, wallet deduction, and navigation to Pack Opening.
+/// Integrated with Phase 1 telemetry & emotion tracking.
+/// </summary>
 public class BoosterMarketAuto : MonoBehaviour
 {
     [Header("Panels")]
@@ -12,40 +17,57 @@ public class BoosterMarketAuto : MonoBehaviour
 
     [Header("References")]
     public PackOpeningController opener;
-    public Transform listParent;        // ← your PackList object
-    public GameObject buttonPrefab;     // Button + TMP + CanvasGroup
+    public Transform listParent;         // Parent object for pack buttons
+    public GameObject buttonPrefab;      // Prefab containing Button + TMP + CanvasGroup
 
-    // keep for refresh when wallet changes
+    // Keep references for UI refreshes (e.g., after wallet updates)
     private readonly List<(Button btn, CanvasGroup cg, string key, PackType pack)> _items = new();
 
     void Start()
     {
-        var cfg = DropConfigManager.Instance.config;
-        if (cfg?.pack_types == null) { Debug.LogError("No pack_types in config"); return; }
+        // --- Load drop configuration ---
+        var cfg = DropConfigManager.Instance?.config;
+        if (cfg?.pack_types == null)
+        {
+            Debug.LogError("[Market] No pack_types found in drop config. Check ccas_drop_config.json");
+            return;
+        }
 
+        // --- Build dynamic buttons ---
         foreach (var kv in cfg.pack_types)
         {
             string key = kv.Key;
-            var p = kv.Value;
+            var packData = kv.Value;
 
-            var go  = Instantiate(buttonPrefab, listParent);
+            // Instantiate UI elements
+            var go = Instantiate(buttonPrefab, listParent);
             var btn = go.GetComponent<Button>();
-            var cg  = go.GetComponent<CanvasGroup>() ?? go.AddComponent<CanvasGroup>();
-            var txt = go.GetComponentInChildren<TextMeshProUGUI>();
+            var cg = go.GetComponent<CanvasGroup>() ?? go.AddComponent<CanvasGroup>();
+            var txt = go.GetComponentInChildren<TextMeshProUGUI>(true);
 
-            // Show name + price (prefers coins; uses gems if coins==0)
-            string price = (p.cost != null && p.cost.coins > 0) ? $"{p.cost.coins} coins"
-                         : (p.cost != null && p.cost.gems  > 0) ? $"{p.cost.gems} gems"
-                         : "Free";
-            txt.text = $"{p.name} • {price}";
+            if (btn == null || txt == null)
+            {
+                Debug.LogWarning($"[Market] ButtonPrefab missing Button or TMP_Text for {key}");
+                continue;
+            }
 
-            btn.onClick.AddListener(() => TryBuyAndOpen(p, key));
+            // Compose pack label
+            string price = (packData.cost != null && packData.cost.coins > 0)
+                ? $"{packData.cost.coins} coins"
+                : (packData.cost != null && packData.cost.gems > 0)
+                    ? $"{packData.cost.gems} gems"
+                    : "Free";
 
-            _items.Add((btn, cg, key, p));
+            txt.text = $"{packData.name} • {price}";
+            btn.onClick.AddListener(() => TryBuyAndOpen(packData, key));
+
+            _items.Add((btn, cg, key, packData));
         }
 
-        // initial afford check + subscribe for future updates
+        // --- Initial affordability check ---
         RefreshAffordability();
+
+        // Subscribe for wallet updates
         if (PlayerWallet.Instance != null)
             PlayerWallet.Instance.OnChanged += RefreshAffordability;
     }
@@ -56,29 +78,53 @@ public class BoosterMarketAuto : MonoBehaviour
             PlayerWallet.Instance.OnChanged -= RefreshAffordability;
     }
 
+    /// <summary>
+    /// Greys out packs that the player cannot afford.
+    /// </summary>
     void RefreshAffordability()
     {
         var wallet = PlayerWallet.Instance;
         foreach (var item in _items)
         {
-            bool can = wallet == null || wallet.CanAfford(item.pack);
-            item.btn.interactable = can;
-            item.cg.alpha = can ? 1f : 0.45f;     // grey out
-            item.cg.blocksRaycasts = can;         // avoid clicks when disabled
+            bool canAfford = wallet == null || wallet.CanAfford(item.pack);
+            item.btn.interactable = canAfford;
+            item.cg.alpha = canAfford ? 1f : 0.45f; // Dim if not affordable
+            item.cg.blocksRaycasts = canAfford;
         }
     }
 
-    void TryBuyAndOpen(PackType p, string key)
+    /// <summary>
+    /// Handles pack purchases and transitions to the pack-opening panel.
+    /// </summary>
+    void TryBuyAndOpen(PackType packData, string packKey)
     {
         var wallet = PlayerWallet.Instance;
-        if (wallet != null && !wallet.SpendForPack(p))
+        if (wallet != null && !wallet.SpendForPack(packData))
         {
-            Debug.Log("Not enough currency for " + p.name);
+            Debug.Log($"[Market] Not enough currency for {packData.name}");
             return;
         }
 
-        marketPanel.SetActive(false);
-        packPanel.SetActive(true);
-        opener.OpenPackOfType(key);
+        // Close market, open pack screen
+        marketPanel?.SetActive(false);
+        packPanel?.SetActive(true);
+
+        // Reset emotional state before new session pull
+        EmotionalStateManager.Instance?.ResetSession();
+
+        // Ensure PackOpeningController exists and trigger open
+        if (opener == null)
+        {
+            opener = packPanel?.GetComponentInChildren<PackOpeningController>(true);
+        }
+
+        if (opener != null)
+        {
+            opener.OpenPackOfType(packKey);
+        }
+        else
+        {
+            Debug.LogError($"[Market] No PackOpeningController found in {packPanel?.name ?? "packPanel"}");
+        }
     }
 }
