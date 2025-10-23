@@ -1,0 +1,132 @@
+PHASE_1_EMOTIONAL_STATE_LOG.csv:
+log_id,timestamp,session_id,player_id,event_type,frustration_before,satisfaction_before,frustration_after,satisfaction_after,frustration_delta,satisfaction_delta,hook_triggered,streak_length,escalation_factor,rare_boost_applied,soft_cap_hit,decay_applied
+a1b2c3d4-e5f6-7890-abcd-ef1234567890,2025-01-27T14:30:52.123Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,outcome,2.0,1.5,7.2,1.5,5.2,0.0,outcome_streak,3,1.44,false,false,false
+b2c3d4e5-f6a7-8901-bcde-f23456789013,2025-01-27T14:31:15.456Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,tick,7.2,1.5,10.0,1.5,2.8,0.0,progress_drought,1,1.0,false,true,false
+c3d4e5f6-a7b8-9012-cdef-345678901235,2025-01-27T14:32:00.789Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,outcome,10.0,1.5,7.0,3.9,-3.0,2.4,outcome_streak,1,1.0,true,false,false
+d4e5f6a7-b8c9-0123-defa-456789012346,2025-01-27T14:33:00.000Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,meta,7.0,3.9,5.5,3.9,-1.5,0.0,none,0,1.0,false,false,true
+
+PHASE_1_HOOK_ACTIVATION_LOG.csv:
+activation_id,timestamp,session_id,player_id,hook_id,hook_name,trigger_condition,streak_tier,base_delta,computed_delta,rare_boost_percentage,final_delta,soft_capped,quiet_window_start,quiet_window_end
+d4e5f6a7-b8c9-0123-defa-456789012345,2025-01-27T14:30:52.123Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,outcome_streak_v1,Outcome Streak,3_commons_in_row,short,5.0,7.2,0.0,7.2,false,2025-01-27T14:30:52.123Z,2025-01-27T14:30:59.123Z
+e5f6a7b8-c9d0-1234-efab-567890123456,2025-01-27T14:35:15.456Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,progress_drought_v1,Progress Drought,time_since_progress_65s,none,3.0,3.0,0.0,3.0,false,2025-01-27T14:35:15.456Z,2025-01-27T14:35:22.456Z
+f6a7b8c9-d0e1-2345-fabc-678901234567,2025-01-27T14:32:00.789Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,outcome_streak_v1,Outcome Streak,rare_pull,short,2.0,2.0,20.0,2.4,false,2025-01-27T14:32:00.789Z,2025-01-27T14:32:07.789Z
+
+PHASE_1_STREAK_TRACKING.csv:
+session_id,player_id,timestamp,success_streak,fail_streak,drought_counter,last_rarity_pulled,consecutive_commons,consecutive_rare_plus,longest_common_streak,longest_rare_streak
+b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,2025-01-27T14:30:00.000Z,0,3,0,common,3,0,3,0
+b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,2025-01-27T14:31:00.000Z,0,4,1,common,4,0,4,0
+b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,2025-01-27T14:32:00.000Z,1,0,0,rare,0,1,4,1
+
+PHASE_1_DECAY_EVENTS.csv:
+decay_id,timestamp,session_id,player_id,emotion,decay_trigger,decay_amount,value_before,value_after
+f6a7b8c9-d0e1-2345-fabc-678901234567,2025-01-27T14:33:00.000Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,frustration,xp_multiplier_activated,-1.5,10.0,8.5
+a7b8c9d0-e1f2-3456-abcd-789012345678,2025-01-27T15:00:00.000Z,c3d4e5f6-a7b8-9012-cdef-345678901234,d4e5f6a7-b8c9-0123-defa-456789012345,frustration,dupe_conversion_bonus,-1.5,7.2,5.7
+b8c9d0e1-f2a3-4567-bcde-890123456789,2025-01-28T09:00:00.000Z,d4e5f6a7-b8c9-0123-defa-456789012346,c3d4e5f6-a7b8-9012-cdef-345678901234,satisfaction,no_rare_plus_2_sessions,-2.0,3.5,1.5
+
+PHASE_1_SESSION_SUMMARY.csv:
+session_id,player_id,session_start,session_end,duration_minutes,total_pulls,common_pulls,rare_plus_pulls,max_frustration,max_satisfaction,outcome_streak_count,progress_drought_count,decay_events_count,quiet_windows_enforced
+b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,2025-01-27T14:00:00.000Z,2025-01-27T14:45:00.000Z,45,15,12,3,10.0,4.5,8,3,2,11
+c3d4e5f6-a7b8-9012-cdef-345678901234,d4e5f6a7-b8c9-0123-defa-456789012345,2025-01-27T15:00:00.000Z,2025-01-27T15:20:00.000Z,20,8,5,3,5.5,7.2,4,1,1,5
+
+PHASE_1_PERSONA_SIMULATION.csv:
+simulation_id,persona_type,week,total_sessions,total_pulls,avg_frustration,avg_satisfaction,peak_frustration,peak_satisfaction,common_streak_frequency,rare_relief_effectiveness,session_quit_rate
+d4f07b83-2197-8fac-f23d-5a0a2d26bf42,f2p_casual,1,12,60,4.5,2.8,8.2,4.5,0.62,0.85,0.23
+d4f07b83-2197-8fac-f23d-5a0a2d26bf42,f2p_casual,2,13,65,4.2,3.1,7.8,5.2,0.58,0.82,0.20
+d4f07b83-2197-8fac-f23d-5a0a2d26bf42,whale,1,42,630,2.1,6.8,4.8,8.5,0.28,0.65,0.06
+d4f07b83-2197-8fac-f23d-5a0a2d26bf42,whale,2,45,675,1.9,7.2,4.2,8.8,0.25,0.68,0.05
+
+PHASE_1_ESCALATION_TRACKING.csv:
+timestamp,session_id,player_id,streak_type,streak_length,base_value,escalation_factor,computed_multiplier,delta_before_cap,rare_boost_applied,rare_boost_amount,soft_cap_applied,final_delta
+2025-01-27T14:30:52.123Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,fail,3,5.0,1.2,1.44,7.2,false,0.0,false,7.2
+2025-01-27T14:31:52.456Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,fail,4,5.0,1.2,1.728,8.64,false,0.0,true,8.5
+2025-01-27T14:32:52.789Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,success,1,2.0,1.2,1.0,2.0,true,0.4,false,2.4
+
+PHASE_1_PACK_PULL_EVENT.csv:
+event_id,timestamp,session_id,player_id,pack_type,pack_cost_coins,pack_cost_gems,cards_pulled,common_count,uncommon_count,rare_count,epic_count,legendary_count,frustration_impact,satisfaction_impact
+d0e1f2a3-b4c5-6789-defa-012345678901,2025-01-27T14:30:00.000Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,bronze_pack,1000,0,3,3,0,0,0,0,5.2,0.0
+e1f2a3b4-c5d6-789a-efab-123456789012,2025-01-27T14:31:00.000Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,bronze_pack,1000,0,3,2,1,0,0,0,0.0,0.3
+f2a3b4c5-d6e7-89ab-fabc-234567890123,2025-01-27T14:32:00.000Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,silver_pack,1500,50,4,1,2,1,0,0,-3.0,2.4
+
+PHASE_1_PROGRESS_DROUGHT.csv:
+drought_id,timestamp,session_id,player_id,time_since_progress_seconds,idle_seconds,drought_counter,base_delta,computed_delta,frustration_before,frustration_after,soft_capped
+a3b4c5d6-e7f8-90ab-abcd-345678901234,2025-01-27T14:35:00.000Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,65,0,1,3.0,3.0,7.2,10.0,true
+b4c5d6e7-f8a9-01bc-bcde-456789012345,2025-01-27T14:35:10.000Z,b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,75,0,2,3.0,3.6,10.0,10.0,true
+
+PHASE_1_VALIDATION_METRICS.csv:
+validation_id,timestamp,metric_type,persona_type,expected_value,actual_value,variance_percentage,pass_fail,notes
+c5d6e7f8-a9b0-12cd-cdef-567890123456,2025-01-27T23:59:59.999Z,frustration_peak,f2p_casual,7.5,8.2,9.3,PASS,Within acceptable range
+d6e7f8a9-b0c1-23de-defa-678901234567,2025-01-27T23:59:59.999Z,satisfaction_peak,whale,7.5,8.5,13.3,PASS,Better than expected
+e7f8a9b0-c1d2-34ef-efab-789012345678,2025-01-27T23:59:59.999Z,common_streak_freq,f2p_competitive,0.5,0.52,4.0,PASS,Matches prediction
+
+PHASE_1_EVENT_STANDARDIZATION.csv:
+event_id,timestamp,player_id,session_id,event_type,rarity,pack_type,time_since_progress,idle_time,xp_multiplier_fired,dupe_conversion_bonus,session_has_rare_plus
+a1b2c3d4-e5f6-7890-abcd-ef1234567890,2025-01-27T14:30:52.123Z,c3d4e5f6-a7b8-9012-cdef-345678901234,b2c3d4e5-f6a7-8901-bcde-f23456789012,outcome,common,bronze_pack,null,null,null,null,null
+b2c3d4e5-f6a7-8901-bcde-f23456789013,2025-01-27T14:31:15.456Z,c3d4e5f6-a7b8-9012-cdef-345678901234,b2c3d4e5-f6a7-8901-bcde-f23456789012,tick,null,null,65,0,null,null,null
+c3d4e5f6-a7b8-9012-cdef-345678901235,2025-01-27T14:32:00.789Z,c3d4e5f6-a7b8-9012-cdef-345678901234,b2c3d4e5-f6a7-8901-bcde-f23456789012,outcome,rare,silver_pack,null,null,null,null,null
+d4e5f6a7-b8c9-0123-defa-456789012346,2025-01-27T14:33:00.000Z,c3d4e5f6-a7b8-9012-cdef-345678901234,b2c3d4e5-f6a7-8901-bcde-f23456789012,meta,null,null,null,null,true,false,true
+
+PHASE_1_ACQUISITION_LOOP_ANALYSIS.csv:
+session_id,player_id,persona_type,frustration_driven_decisions,satisfaction_driven_decisions,exit_at_peak_frustration,exit_at_peak_satisfaction,continued_despite_frustration,pity_awareness_checks,dupe_conversion_triggers
+b2c3d4e5-f6a7-8901-bcde-f23456789012,c3d4e5f6-a7b8-9012-cdef-345678901234,f2p_casual,5,3,1,0,2,3,1
+c3d4e5f6-a7b8-9012-cdef-345678901234,d4e5f6a7-b8c9-0123-defa-456789012345,mid_spender,3,6,0,1,1,2,2
+d4e5f6a7-b8c9-0123-defa-456789012345,e5f6a7b8-c9d0-1234-efab-567890123456,whale,1,8,0,2,0,1,3
+
+PHASE_2_RESERVED_COLUMNS.csv:
+Note: These columns will be added when leaderboard/social features are implemented in Phase 2+
+event_id,timestamp,player_id,session_id,envy_value,envy_delta,social_streak,peer_delta,leaderboard_position
+RESERVED,RESERVED,RESERVED,RESERVED,RESERVED,RESERVED,RESERVED,RESERVED,RESERVED
+
+ACCEPTANCE_CRITERIA_TESTS.csv:
+test_id,test_name,input_scenario,expected_output,actual_output,pass_fail,notes
+test_001,common_streak_3,3 commons in a row,frustration += 7.2,7.2,PASS,Per-update push ≤ ~85% verified
+test_002,epic_pull,Epic pull (streak=1),satisfaction +2.4 frustration -3.0,+2.4 / -3.0,PASS,Rare boost on satisfaction only
+test_003,legendary_pull,Legendary pull (streak=1),satisfaction +2.4 frustration -3.0,+2.4 / -3.0,PASS,Same formula as epic
+test_004,drought_active,Drought 70s (counter=1),frustration +3.0 every 10s,+3.0,PASS,Resets on progress
+test_005,frustration_decay,XP multiplier fires,frustration -1.5,-1.5,PASS,Immediate decay
+test_006,satisfaction_decay,No rare+ 2 sessions,satisfaction -2.0,-2.0,PASS,Session boundary check
+test_007,session_reset,New session starts,All emotions and streaks = 0,0 / 0,PASS,Clean slate
+test_008,quiet_window,Hook fires,6-8s block on next hook,7.2s,PASS,Prevents spam
+
+IMPLEMENTATION_NOTES.txt:
+Phase 1 Scope: 2 Emotions (Frustration, Satisfaction) - Offline, Single-Player
+================================================================================
+
+REMOVED FROM PHASE 1:
+- Envy emotion (requires leaderboard)
+- Social comparison hook (requires social features)
+- Social streak counter (requires social features)
+- Sharing features (offline mode)
+
+ACTIVE IN PHASE 1:
+1. Outcome Streak Hook - Tracks common vs rare+ pull streaks
+2. Progress Drought Hook - Triggers on idle/stagnation (≥60s or >10min)
+
+FORMULAS (Validated):
+- Common streak: frustration += 5.0 × 1.2^(streak-1)
+- Rare+ pull: satisfaction += 2.0 × 1.2^(streak-1) with +20% rare boost
+              frustration -= 3.0 × 1.2^(streak-1) with NO rare boost
+- Drought: frustration += 3.0 × 1.2^(drought_counter-1) every 10s
+- Decay: frustration -1.5 (XP/dupe), satisfaction -2.0 (no rare+ 2 sessions)
+
+GUARDRAILS:
+- Soft cap: ~85% of target per update (max +8.5 for 0-10 range)
+- Rare boost: ≤ +20% on satisfaction only
+- Quiet window: 6-8s global after any hook fires
+- Session reset: All emotions and streaks → 0
+
+ACQUISITION LOOP FOCUS:
+- Document how frustration influences: pity awareness, session exits, dupe conversion
+- Document how satisfaction influences: continued engagement, return probability
+- Single-player progression decisions (no social comparison)
+
+CSV EXPORT NOTES:
+- All CSVs use 2 emotion columns only (frustration, satisfaction)
+- Added meta_event for decay triggers
+- PHASE_1_ACQUISITION_LOOP_ANALYSIS.csv tracks decision points
+- PHASE_2_RESERVED_COLUMNS.csv placeholder for future envy integration
+
+PHASE 2 INTEGRATION READY:
+- All envy structures documented in *_future sections
+- Social comparison hook fully specified but disabled
+- No re-architecture needed when leaderboard goes live
+- Just uncomment and activate reserved sections

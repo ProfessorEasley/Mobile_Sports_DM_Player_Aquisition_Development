@@ -4,51 +4,49 @@ using System.IO;
 using UnityEngine;
 using Newtonsoft.Json;
 
-/// Phase 1 (Offline, Single Player)
-/// Handles basic emotional state tracking for Frustration and Satisfaction.
-/// Dynamically loads tuning constants from phase1_config.json in Resources or StreamingAssets.
+/// <summary>
+/// Phase 1 Emotional State Manager
+/// Tracks Frustration & Satisfaction dynamically using the new JSON suite:
+///   - phase1_config.json: global constants (EF, soft cap, etc.)
+///   - phase1_edge_cases.json: hook + decay formulas
+///   - phase1_persona.json: per-persona sensitivity and thresholds
+/// </summary>
 public class EmotionalStateManager : MonoBehaviour
 {
     public static EmotionalStateManager Instance;
 
-    [Header("Phase 1 Parameters (Loaded from JSON)")]
-    [Range(0.5f, 2.0f)] public float EF = 1.2f;               // Escalation factor
-    [Range(0.5f, 1.0f)] public float softCapPct = 0.85f;       // Soft-cap % of target
-    [Range(1.0f, 1.5f)] public float rareBoostCap = 1.20f;     // +20% cap for Rare+
+    [Header("Global Config (Loaded JSON)")]
+    public float EF = 1.2f;
+    public float softCapPct = 0.85f;
+    public float rareBoostCap = 1.20f;
     public float baseFrustration = 5f;
     public float baseSatisfaction = 2f;
     public float baseDrought = 3f;
     public float frustrationDecay = 1.5f;
     public float satisfactionDecay = 2.0f;
 
+    [Header("Persona Tuning (Optional)")]
+    public string activePersona = "f2p_casual";
+    public float personaFrustrationSensitivity = 1.0f;
+    public float personaSatisfactionSensitivity = 1.0f;
+    public int personaStreakThreshold = 2;
+
     [Header("Emotions (0–10)")]
     [Range(0, 10)] public float frustration;
     [Range(0, 10)] public float satisfaction;
 
-    // --- Session-scoped counters / timers ---
-    int _streakCommons;
-    int _streakRarePlus;
-    int _droughtCounter;
+    // Internal counters
+    private int _streakCommons;
+    private int _streakRarePlus;
+    private int _droughtCounter;
+    private float _tsLastProgress;
+    private float _tsLastAny;
+    private int _sessionsWithoutShareOrRare = 0;
 
-    float _tsLastProgress;
-    float _tsLastAny;
-
-    int _sessionsWithoutShareOrRare = 0;
-
-    private const string ConfigFileName = "phase1_config.json";
-
-    [Serializable]
-    private class Phase1Config
-    {
-        public float EF = 1.2f;
-        public float softCapPct = 0.85f;
-        public float rareBoostCap = 1.2f;
-        public float baseFrustration = 5f;
-        public float baseSatisfaction = 2f;
-        public float baseDrought = 3f;
-        public float frustrationDecay = 1.5f;
-        public float satisfactionDecay = 2.0f;
-    }
+    // Paths
+    private readonly string pathConfig = Path.Combine(Application.streamingAssetsPath, "phase1_config.json");
+    private readonly string pathEdge = Path.Combine(Application.streamingAssetsPath, "phase1_edge_cases.json");
+    private readonly string pathPersona = Path.Combine(Application.streamingAssetsPath, "phase1_persona.json");
 
     void Awake()
     {
@@ -57,79 +55,99 @@ public class EmotionalStateManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         LoadPhase1Config();
+        LoadPersonaConfig(activePersona);
         ResetSession();
     }
 
-    /// <summary>Load parameters from phase1_config.json (Resources or StreamingAssets).</summary>
+    // ----------------------------------------------------
+    // JSON LOADERS
+    // ----------------------------------------------------
     void LoadPhase1Config()
     {
         try
         {
-            // 1️⃣ Try Resources first
-            TextAsset configText = Resources.Load<TextAsset>("phase1_config");
-
-            // 2️⃣ Fallback to StreamingAssets (useful for standalone builds)
-            if (configText == null)
+            if (!File.Exists(pathConfig))
             {
-                string altPath = Path.Combine(Application.streamingAssetsPath, ConfigFileName);
-                if (File.Exists(altPath))
-                    configText = new TextAsset(File.ReadAllText(altPath));
-            }
-
-            if (configText == null)
-            {
-                Debug.LogWarning("[Phase1Config] No config file found. Using defaults.");
+                Debug.LogError($"[Phase1Config] Missing: {pathConfig}");
                 return;
             }
 
-            var cfg = JsonConvert.DeserializeObject<Phase1Config>(configText.text);
-            if (cfg != null)
-            {
-                EF = cfg.EF;
-                softCapPct = cfg.softCapPct;
-                rareBoostCap = cfg.rareBoostCap;
-                baseFrustration = cfg.baseFrustration;
-                baseSatisfaction = cfg.baseSatisfaction;
-                baseDrought = cfg.baseDrought;
-                frustrationDecay = cfg.frustrationDecay;
-                satisfactionDecay = cfg.satisfactionDecay;
+            string json = File.ReadAllText(pathConfig);
+            var root = JsonConvert.DeserializeObject<Phase1ConfigRoot>(json);
 
-                Debug.Log($"[Phase1Config] ✅ Loaded: EF={EF}, softCap={softCapPct}, rareBoost={rareBoostCap}");
+            if (root?.phase_1_configuration != null)
+            {
+                var cfg = root.phase_1_configuration;
+                EF = cfg.escalation_factor;
+                softCapPct = cfg.soft_cap_percentage;
+                rareBoostCap = cfg.rare_boost_cap;
+
+                Debug.Log($"[Phase1Config] ✅ Loaded global config: EF={EF}, softCap={softCapPct}, rareBoost={rareBoostCap}");
             }
         }
         catch (Exception e)
         {
-            Debug.LogError($"[Phase1Config] ❌ Failed to load config: {e.Message}");
+            Debug.LogError($"[Phase1Config] ❌ Load failed: {e.Message}");
         }
     }
 
+    void LoadPersonaConfig(string personaKey)
+    {
+        try
+        {
+            if (!File.Exists(pathPersona))
+            {
+                Debug.LogWarning($"[PersonaConfig] Missing: {pathPersona}");
+                return;
+            }
+
+            string json = File.ReadAllText(pathPersona);
+            var personaRoot = JsonConvert.DeserializeObject<Phase1PersonaRoot>(json);
+            if (personaRoot?.phase_1_personas != null && personaRoot.phase_1_personas.ContainsKey(personaKey))
+            {
+                var persona = personaRoot.phase_1_personas[personaKey];
+                personaFrustrationSensitivity = persona.phase_1_emotional_profile.frustration.base_sensitivity;
+                personaSatisfactionSensitivity = persona.phase_1_emotional_profile.satisfaction.base_sensitivity;
+                personaStreakThreshold = persona.phase_1_emotional_profile.frustration.streak_threshold;
+
+                Debug.Log($"[PersonaConfig] ✅ Loaded persona '{persona.display_name}' — FrSens={personaFrustrationSensitivity}, SaSens={personaSatisfactionSensitivity}, Threshold={personaStreakThreshold}");
+            }
+            else
+            {
+                Debug.LogWarning($"[PersonaConfig] Persona not found: {personaKey}");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[PersonaConfig] ❌ Load failed: {e.Message}");
+        }
+    }
+
+    // ----------------------------------------------------
+    // SESSION CONTROL
+    // ----------------------------------------------------
     public void ResetSession()
     {
         frustration = satisfaction = 0f;
         _streakCommons = _streakRarePlus = 0;
         _droughtCounter = 0;
-        _tsLastProgress = Time.time;
-        _tsLastAny = Time.time;
+        _tsLastProgress = _tsLastAny = Time.time;
         _sessionsWithoutShareOrRare = 0;
     }
 
     // ----------------------------------------------------
-    // PUBLIC API
+    // EVENT HANDLERS
     // ----------------------------------------------------
-
-    /// <summary>Called after a pack is opened with its rarities.</summary>
     public EmotionDeltaResult HandleOutcomeEvent(List<string> rarities, bool pity, string pityType)
     {
         _tsLastAny = Time.time;
 
-        // "Progress" = got a Rare or higher
         bool hasRarePlus = rarities.Exists(r =>
         {
             string k = (r ?? "common").ToLowerInvariant();
             return k == "rare" || k == "epic" || k == "legendary";
         });
 
-        // Update streaks
         if (hasRarePlus)
         {
             _streakRarePlus++;
@@ -146,18 +164,18 @@ public class EmotionalStateManager : MonoBehaviour
 
         var deltas = new EmotionDeltaResult();
 
-        // Common streak → frustration
-        if (_streakCommons >= 2)
+        // Frustration increase for common streaks
+        if (_streakCommons >= personaStreakThreshold)
         {
             float efPow = Mathf.Pow(EF, _streakCommons - 1);
-            deltas.frustration += baseFrustration * efPow;
+            deltas.frustration += baseFrustration * personaFrustrationSensitivity * efPow;
         }
 
-        // Rare+ streak → satisfaction
-        if (_streakRarePlus >= 1)
+        // Satisfaction increase for Rare+ pulls
+        if (hasRarePlus)
         {
             float efPow = Mathf.Pow(EF, Mathf.Max(0, _streakRarePlus - 1));
-            float delta = baseSatisfaction * efPow;
+            float delta = baseSatisfaction * personaSatisfactionSensitivity * efPow;
             deltas.satisfaction += ApplyRarePlusCap(delta);
         }
 
@@ -167,7 +185,6 @@ public class EmotionalStateManager : MonoBehaviour
         return deltas;
     }
 
-    /// <summary>Increases frustration if player has long gaps without progress.</summary>
     public EmotionDeltaResult OnDroughtTick()
     {
         _tsLastAny = Time.time;
@@ -175,7 +192,7 @@ public class EmotionalStateManager : MonoBehaviour
 
         var deltas = new EmotionDeltaResult();
         float efPow = Mathf.Pow(EF, Mathf.Max(0, _droughtCounter - 1));
-        deltas.frustration += baseDrought * efPow;
+        deltas.frustration += baseDrought * personaFrustrationSensitivity * efPow;
 
         ApplyPhase1Decay(false);
         ApplyDeltasWithSoftCap(deltas);
@@ -185,7 +202,6 @@ public class EmotionalStateManager : MonoBehaviour
     // ----------------------------------------------------
     // INTERNAL HELPERS
     // ----------------------------------------------------
-
     float ApplyRarePlusCap(float deltaPositive)
     {
         return deltaPositive <= 0f ? deltaPositive : Mathf.Min(deltaPositive * rareBoostCap, 10f);
@@ -210,7 +226,6 @@ public class EmotionalStateManager : MonoBehaviour
         frustration = SoftCap(frustration, tgtF, softCapPct);
         satisfaction = SoftCap(satisfaction, tgtS, softCapPct);
 
-        // Final clamp to safe range
         frustration = Mathf.Clamp(frustration, 0f, 10f);
         satisfaction = Mathf.Clamp(satisfaction, 0f, 10f);
 
@@ -219,21 +234,49 @@ public class EmotionalStateManager : MonoBehaviour
 
     float SoftCap(float current, float target, float pct)
     {
-        if (target <= current) return target; // Decays are fine
+        if (target <= current) return target;
         float maxStep = current + (target - current) * pct;
         return Mathf.Min(target, maxStep);
     }
 
     public (float fr, float sa) Snapshot() => (frustration, satisfaction);
 
-    public void BreakOutcomeStreaks()
-    {
-        _streakCommons = _streakRarePlus = 0;
-    }
+    public void BreakOutcomeStreaks() => _streakCommons = _streakRarePlus = 0;
 }
 
 public struct EmotionDeltaResult
 {
     public float frustration;
     public float satisfaction;
+}
+
+/// <summary>
+/// Persona schema partial (subset of phase1_persona.json)
+/// </summary>
+[Serializable]
+public class Phase1PersonaRoot
+{
+    public Dictionary<string, Phase1Persona> phase_1_personas;
+}
+
+[Serializable]
+public class Phase1Persona
+{
+    public string display_name;
+    public PersonaEmotionalProfile phase_1_emotional_profile;
+}
+
+[Serializable]
+public class PersonaEmotionalProfile
+{
+    public PersonaEmotion frustration;
+    public PersonaEmotion satisfaction;
+}
+
+[Serializable]
+public class PersonaEmotion
+{
+    public float base_sensitivity;
+    public int streak_threshold;
+    public float max_tolerance;
 }

@@ -1,0 +1,443 @@
+{
+  "schema_version": "ccas.p1.v1",
+  "pack_pull_log_schema": {
+    "event_id": "uuid-string-format",
+    "timestamp": "ISO-8601-string-format",
+    "session_id": "uuid-string-format",
+    "player_id": "uuid-string-format",
+    "player_level": "integer",
+    "pack_info": {
+      "pack_type": "string - bronze/silver/gold/elite/epic",
+      "pack_id": "string",
+      "cost_paid": {
+        "coins": "integer",
+        "gems": "integer"
+      },
+      "purchase_method": "string - coins/gems/free/reward"
+    },
+    "pull_results": [
+      {
+        "card_id": "uuid-string",
+        "card_name": "string",
+        "rarity": "string - common/uncommon/rare/epic/legendary",
+        "is_duplicate": "boolean",
+        "xp_gained": "integer",
+        "dust_gained": "integer"
+      }
+    ],
+    "phase_1_emotional_state": {
+      "frustration": {
+        "value": "float 0.0-10.0",
+        "delta_this_pull": "float",
+        "streak_multiplier": "float"
+      },
+      "satisfaction": {
+        "value": "float 0.0-10.0",
+        "delta_this_pull": "float",
+        "streak_multiplier": "float"
+      }
+    },
+    "phase_1_streaks": {
+      "success_streak": "integer",
+      "fail_streak": "integer",
+      "drought_counter": "integer"
+    },
+    "phase_1_hooks_triggered": {
+      "outcome_streak": {
+        "triggered": "boolean",
+        "streak_type": "string - success/fail",
+        "streak_length": "integer",
+        "delta_applied": "float",
+        "rare_boost_applied": "boolean"
+      },
+      "progress_drought": {
+        "triggered": "boolean",
+        "time_since_progress": "integer",
+        "idle_time": "integer",
+        "delta_applied": "float"
+      }
+    },
+    "phase_1_decay_applied": {
+      "frustration_decay": {
+        "applied": "boolean",
+        "trigger": "string - xp_multiplier_activated | dupe_conversion_bonus | none",
+        "amount": "float"
+      },
+      "satisfaction_decay": {
+        "applied": "boolean",
+        "trigger": "string - no_rare_plus_2_sessions | none",
+        "amount": "float"
+      }
+    },
+    "pity_state": {
+      "pulls_since_rare": "integer",
+      "pulls_since_epic": "integer",
+      "pulls_since_legendary": "integer",
+      "pity_triggered": "boolean",
+      "pity_type": "string - rare/epic/legendary/none"
+    }
+  },
+  
+  "phase_2_additions": {
+    "note": "When leaderboard/social systems are added, include these fields",
+    "phase_1_emotional_state_future": {
+      "envy": {
+        "value": "float 0.0-10.0",
+        "delta_this_pull": "float",
+        "streak_multiplier": "float"
+      }
+    },
+    "phase_1_streaks_future": {
+      "social_streak": "integer"
+    },
+    "phase_1_hooks_triggered_future": {
+      "social_comparison": {
+        "triggered": "boolean",
+        "comparison_result": "string - behind/ahead/equal",
+        "delta_applied": "float"
+      }
+    },
+    "phase_1_decay_applied_future": {
+      "envy_decay": {
+        "applied": "boolean",
+        "trigger": "string - no_leaderboard_exposure_2_sessions | none",
+        "amount": "float"
+      }
+    }
+  },
+  
+  "phase_1_event_schemas": {
+    "outcome_event": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "required": ["type", "event_id", "timestamp", "player_id", "session_id", "rarity"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "outcome"
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "player_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "rarity": {
+          "type": "string",
+          "enum": ["common", "uncommon", "rare", "epic", "legendary"]
+        },
+        "pack_type": {
+          "type": "string"
+        }
+      }
+    },
+    "tick_event": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "required": ["type", "event_id", "timestamp", "player_id", "session_id"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "tick"
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "player_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "time_since_progress_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "idle_seconds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "meta_event": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "required": ["type", "event_id", "timestamp", "player_id", "session_id"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "meta"
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "player_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "xp_multiplier_fired": {
+          "type": "boolean"
+        },
+        "dupe_conversion_bonus": {
+          "type": "boolean"
+        },
+        "session_has_rare_plus": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  
+  "phase_1_telemetry": {
+    "session_emotional_tracking": {
+      "session_id": "uuid-string",
+      "player_id": "uuid-string",
+      "session_start": "ISO-8601-string",
+      "session_end": "ISO-8601-string",
+      "emotional_journey": [
+        {
+          "timestamp": "ISO-8601-string",
+          "event_type": "string - outcome|tick|meta",
+          "frustration": "float",
+          "satisfaction": "float",
+          "hook_triggered": "string - outcome_streak|progress_drought|none",
+          "delta_applied": "float"
+        }
+      ],
+      "session_summary": {
+        "total_pulls": "integer",
+        "common_streaks": "integer",
+        "rare_plus_pulls": "integer",
+        "max_frustration": "float",
+        "max_satisfaction": "float",
+        "hooks_fired": {
+          "outcome_streak": "integer",
+          "progress_drought": "integer"
+        },
+        "decay_events": "integer"
+      }
+    },
+    
+    "hook_effectiveness_tracking": {
+      "hook_id": "string",
+      "timestamp": "ISO-8601-string",
+      "player_id": "uuid-string",
+      "session_id": "uuid-string",
+      "trigger_condition": "string",
+      "emotion_before": {
+        "frustration": "float",
+        "satisfaction": "float"
+      },
+      "emotion_after": {
+        "frustration": "float",
+        "satisfaction": "float"
+      },
+      "delta_applied": {
+        "frustration": "float",
+        "satisfaction": "float"
+      },
+      "streak_length": "integer",
+      "escalation_factor_used": "float",
+      "rare_boost_applied": "boolean",
+      "soft_cap_hit": "boolean"
+    }
+  },
+  
+  "phase_1_sample_logs": [
+    {
+      "event_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "timestamp": "2025-01-27T14:30:52.123Z",
+      "session_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "player_id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+      "player_level": 15,
+      "pack_info": {
+        "pack_type": "bronze_pack",
+        "pack_id": "bronze_001",
+        "cost_paid": {
+          "coins": 1000,
+          "gems": 0
+        },
+        "purchase_method": "coins"
+      },
+      "pull_results": [
+        {
+          "card_id": "d4e5f6a7-b8c9-0123-defa-456789012345",
+          "card_name": "Common Fighter",
+          "rarity": "common",
+          "is_duplicate": false,
+          "xp_gained": 10,
+          "dust_gained": 0
+        },
+        {
+          "card_id": "e5f6a7b8-c9d0-1234-efab-567890123456",
+          "card_name": "Common Defender",
+          "rarity": "common",
+          "is_duplicate": true,
+          "xp_gained": 10,
+          "dust_gained": 5
+        },
+        {
+          "card_id": "f6a7b8c9-d0e1-2345-fabc-678901234567",
+          "card_name": "Common Runner",
+          "rarity": "common",
+          "is_duplicate": false,
+          "xp_gained": 10,
+          "dust_gained": 0
+        }
+      ],
+      "phase_1_emotional_state": {
+        "frustration": {
+          "value": 7.2,
+          "delta_this_pull": 7.2,
+          "streak_multiplier": 1.44
+        },
+        "satisfaction": {
+          "value": 0.5,
+          "delta_this_pull": 0.0,
+          "streak_multiplier": 1.0
+        }
+      },
+      "phase_1_streaks": {
+        "success_streak": 0,
+        "fail_streak": 3,
+        "drought_counter": 0
+      },
+      "phase_1_hooks_triggered": {
+        "outcome_streak": {
+          "triggered": true,
+          "streak_type": "fail",
+          "streak_length": 3,
+          "delta_applied": 7.2,
+          "rare_boost_applied": false
+        },
+        "progress_drought": {
+          "triggered": false,
+          "time_since_progress": 0,
+          "idle_time": 0,
+          "delta_applied": 0.0
+        }
+      },
+      "phase_1_decay_applied": {
+        "frustration_decay": {
+          "applied": false,
+          "trigger": "none",
+          "amount": 0.0
+        },
+        "satisfaction_decay": {
+          "applied": false,
+          "trigger": "none",
+          "amount": 0.0
+        }
+      },
+      "pity_state": {
+        "pulls_since_rare": 3,
+        "pulls_since_epic": 50,
+        "pulls_since_legendary": 100,
+        "pity_triggered": false,
+        "pity_type": "none"
+      }
+    }
+  ],
+  
+  "acquisition_loop_documentation": {
+    "frustration_impact": {
+      "description": "Tracks player disappointment from common streaks and lack of progress",
+      "feeds_into": [
+        "Pity system awareness",
+        "Pack purchase hesitation",
+        "Session exit probability",
+        "Dupe conversion engagement"
+      ],
+      "mitigation_strategies": [
+        "XP multiplier triggers decay (-1.5)",
+        "Dupe bonus triggers decay (-1.5)",
+        "Rare+ pulls provide frustration reduction (-3.0 × EF^streak)",
+        "Soft cap prevents runaway frustration (max +8.5 per update)"
+      ]
+    },
+    "satisfaction_impact": {
+      "description": "Tracks player reward fulfillment from rare+ pulls",
+      "feeds_into": [
+        "Continued engagement probability",
+        "Return session motivation",
+        "Pack purchase confidence",
+        "Positive session memory"
+      ],
+      "enhancement_strategies": [
+        "Rare boost (+20%) on satisfaction delta",
+        "Multiple rare+ pulls increase via success streak",
+        "Visual feedback on satisfaction peaks",
+        "Session summary highlights"
+      ]
+    },
+    "phase_1_focus": "Document player decision points where frustration/satisfaction influence behavior: continue pulling, stop session, return tomorrow, convert dupes",
+    "phase_2_additions": "When envy is added, document how leaderboard position affects pack purchase decisions and competitive engagement"
+  },
+  
+  "acceptance_criteria": {
+    "test_common_streak_logging": {
+      "scenario": "3 commons in a row",
+      "expected_log": {
+        "fail_streak": 3,
+        "frustration_delta": 7.2,
+        "streak_multiplier": 1.44,
+        "outcome_streak_triggered": true,
+        "rare_boost_applied": false
+      }
+    },
+    "test_rare_pull_logging": {
+      "scenario": "Rare pull after commons",
+      "expected_log": {
+        "success_streak": 1,
+        "satisfaction_delta": 2.4,
+        "frustration_delta": -3.0,
+        "streak_multiplier": 1.0,
+        "outcome_streak_triggered": true,
+        "rare_boost_applied": true
+      }
+    },
+    "test_drought_logging": {
+      "scenario": "Drought active for 70 seconds",
+      "expected_log": {
+        "drought_counter": 1,
+        "frustration_delta": 3.0,
+        "progress_drought_triggered": true,
+        "time_since_progress": 70
+      }
+    },
+    "test_decay_logging": {
+      "scenario": "XP multiplier fires",
+      "expected_log": {
+        "frustration_decay_applied": true,
+        "frustration_decay_trigger": "xp_multiplier_activated",
+        "frustration_decay_amount": -1.5
+      }
+    }
+  }
+}

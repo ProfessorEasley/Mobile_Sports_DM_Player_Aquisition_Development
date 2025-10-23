@@ -1,0 +1,359 @@
+{
+  "schema_version": "ccas.p1.v1",
+  "phase_1_personas": {
+    "f2p_casual": {
+      "persona_id": "90cd3f49-9863-4cd8-b89f-1ced8a82ec08",
+      "display_name": "F2P Casual",
+      "description": "Plays 2-3x per week, no spending, single-player focused",
+      "behavioral_parameters": {
+        "sessions_per_week": 2.5,
+        "session_duration_minutes": 20,
+        "coins_per_session": 500,
+        "gems_per_session": 0,
+        "pack_preference": ["bronze_pack"]
+      },
+      "phase_1_emotional_profile": {
+        "frustration": {
+          "base_sensitivity": 1.2,
+          "streak_threshold": 2,
+          "max_tolerance": 8.0
+        },
+        "satisfaction": {
+          "base_sensitivity": 0.8,
+          "rare_impact_multiplier": 1.5,
+          "baseline": 2.0
+        }
+      },
+      "phase_1_hook_response": {
+        "outcome_streak": {
+          "response_rate": 0.95,
+          "common_streak_impact": "high",
+          "rare_relief": "significant"
+        },
+        "progress_drought": {
+          "susceptibility": 0.85,
+          "patience_seconds": 45
+        }
+      }
+    },
+    "f2p_competitive": {
+      "persona_id": "a1cd4f50-9864-5cd9-c90a-2ded9a93ec19",
+      "display_name": "Competitive F2P",
+      "description": "Plays daily, grinds for resources, future leaderboard candidate",
+      "behavioral_parameters": {
+        "sessions_per_week": 7,
+        "session_duration_minutes": 45,
+        "coins_per_session": 800,
+        "gems_per_session": 25,
+        "pack_preference": ["bronze_pack", "silver_pack"]
+      },
+      "phase_1_emotional_profile": {
+        "frustration": {
+          "base_sensitivity": 0.8,
+          "streak_threshold": 3,
+          "max_tolerance": 9.0
+        },
+        "satisfaction": {
+          "base_sensitivity": 1.0,
+          "rare_impact_multiplier": 1.2,
+          "baseline": 3.0
+        }
+      },
+      "phase_1_hook_response": {
+        "outcome_streak": {
+          "response_rate": 0.85,
+          "common_streak_impact": "moderate",
+          "rare_relief": "moderate"
+        },
+        "progress_drought": {
+          "susceptibility": 0.6,
+          "patience_seconds": 90
+        }
+      },
+      "phase_2_additions": {
+        "note": "When leaderboard added, this persona will have high envy sensitivity",
+        "envy": {
+          "base_sensitivity": 1.5,
+          "social_exposure_rate": 0.8,
+          "comparison_frequency": "high"
+        }
+      }
+    },
+    "mid_spender": {
+      "persona_id": "b2de5f61-0975-6dea-d01b-3efe0b04fd20",
+      "display_name": "Mid Spender",
+      "description": "Spends $10-20/month, values progression",
+      "behavioral_parameters": {
+        "sessions_per_week": 5,
+        "session_duration_minutes": 35,
+        "coins_per_session": 600,
+        "gems_per_session": 75,
+        "spending_budget_monthly": 15,
+        "pack_preference": ["silver_pack", "gold_pack"]
+      },
+      "phase_1_emotional_profile": {
+        "frustration": {
+          "base_sensitivity": 1.0,
+          "streak_threshold": 2,
+          "max_tolerance": 7.0
+        },
+        "satisfaction": {
+          "base_sensitivity": 1.2,
+          "rare_impact_multiplier": 1.3,
+          "baseline": 3.5
+        }
+      },
+      "phase_1_hook_response": {
+        "outcome_streak": {
+          "response_rate": 0.9,
+          "common_streak_impact": "moderate",
+          "rare_relief": "high"
+        },
+        "progress_drought": {
+          "susceptibility": 0.7,
+          "patience_seconds": 60
+        }
+      }
+    },
+    "whale": {
+      "persona_id": "c3ef6a72-1086-7efb-e12c-4faf1c15ae31",
+      "display_name": "Whale",
+      "description": "High spender, $50+/month, collection completionist",
+      "behavioral_parameters": {
+        "sessions_per_week": 6,
+        "session_duration_minutes": 60,
+        "coins_per_session": 1000,
+        "gems_per_session": 300,
+        "spending_budget_monthly": 75,
+        "pack_preference": ["gold_pack", "elite_pack", "epic_pack"]
+      },
+      "phase_1_emotional_profile": {
+        "frustration": {
+          "base_sensitivity": 0.6,
+          "streak_threshold": 4,
+          "max_tolerance": 6.0
+        },
+        "satisfaction": {
+          "base_sensitivity": 1.5,
+          "rare_impact_multiplier": 1.1,
+          "baseline": 5.0
+        }
+      },
+      "phase_1_hook_response": {
+        "outcome_streak": {
+          "response_rate": 0.7,
+          "common_streak_impact": "low",
+          "rare_relief": "moderate"
+        },
+        "progress_drought": {
+          "susceptibility": 0.4,
+          "patience_seconds": 120
+        }
+      }
+    }
+  },
+  
+  "phase_1_simulation_parameters": {
+    "simulation_id": "d4f07b83-2197-8fac-f23d-5a0a2d26bf42",
+    "simulation_duration_weeks": 2,
+    "iterations_per_persona": 100,
+    "session_persistence_only": true,
+    "tracked_emotions": ["frustration", "satisfaction"],
+    "active_hooks": ["outcome_streak", "progress_drought"],
+    "escalation_factor": 1.2,
+    "soft_cap_percentage": 0.85,
+    "rare_multiplier_cap": 1.20,
+    "quiet_window_seconds": [6, 8],
+    "offline_single_player": true
+  },
+  
+  "phase_1_expected_outcomes": {
+    "f2p_casual": {
+      "average_frustration_peak": 7.5,
+      "average_satisfaction_peak": 4.0,
+      "common_streak_frequency": 0.6,
+      "rare_relief_impact": "high",
+      "session_quit_probability": 0.25,
+      "acquisition_loop_notes": "High frustration from common streaks drives pity awareness. Rare+ pulls provide strong satisfaction relief. Likely to stop after peak frustration or peak satisfaction."
+    },
+    "f2p_competitive": {
+      "average_frustration_peak": 6.0,
+      "average_satisfaction_peak": 5.5,
+      "common_streak_frequency": 0.5,
+      "rare_relief_impact": "moderate",
+      "session_quit_probability": 0.15,
+      "acquisition_loop_notes": "Moderate frustration tolerance. Continues through frustration to reach satisfaction peaks. Would show high envy when leaderboard added (Phase 2)."
+    },
+    "mid_spender": {
+      "average_frustration_peak": 5.5,
+      "average_satisfaction_peak": 6.0,
+      "common_streak_frequency": 0.4,
+      "rare_relief_impact": "high",
+      "session_quit_probability": 0.18,
+      "acquisition_loop_notes": "Balanced emotional experience. Spending reduces frustration exposure. High satisfaction from premium packs drives continued engagement."
+    },
+    "whale": {
+      "average_frustration_peak": 4.0,
+      "average_satisfaction_peak": 7.5,
+      "common_streak_frequency": 0.3,
+      "rare_relief_impact": "moderate",
+      "session_quit_probability": 0.08,
+      "acquisition_loop_notes": "Low frustration due to premium pack access. High baseline satisfaction. Rarely experiences common streaks. Most stable emotional profile."
+    }
+  },
+  
+  "phase_1_simulation_output_schema": {
+    "simulation_run_id": "uuid-string",
+    "timestamp_start": "ISO-8601-string",
+    "timestamp_end": "ISO-8601-string",
+    "persona_results": {
+      "persona_id": "uuid-string",
+      "total_sessions": "integer",
+      "total_pulls": "integer",
+      "emotional_peaks": {
+        "frustration_max": "float",
+        "satisfaction_max": "float"
+      },
+      "hook_activation_counts": {
+        "outcome_streak": "integer",
+        "progress_drought": "integer"
+      },
+      "streak_statistics": {
+        "longest_common_streak": "integer",
+        "average_common_streak": "float",
+        "rare_plus_frequency": "float"
+      },
+      "decay_events": {
+        "frustration_decay_count": "integer",
+        "satisfaction_decay_count": "integer"
+      },
+      "acquisition_loop_analysis": {
+        "frustration_driven_decisions": "integer",
+        "satisfaction_driven_decisions": "integer",
+        "session_exits_at_peak_frustration": "integer",
+        "session_exits_at_peak_satisfaction": "integer",
+        "continued_despite_frustration": "integer",
+        "pity_awareness_checks": "integer",
+        "dupe_conversion_triggers": "integer"
+      }
+    }
+  },
+  
+  "phase_1_sample_simulation_result": {
+    "simulation_run_id": "e5a18c94-320a-9fbd-a34e-6b1b3e37ca53",
+    "timestamp_start": "2025-01-27T00:00:00.000Z",
+    "timestamp_end": "2025-02-10T23:59:59.999Z",
+    "persona_results": {
+      "f2p_casual": {
+        "persona_id": "90cd3f49-9863-4cd8-b89f-1ced8a82ec08",
+        "total_sessions": 50,
+        "total_pulls": 250,
+        "emotional_peaks": {
+          "frustration_max": 8.2,
+          "satisfaction_max": 4.5
+        },
+        "hook_activation_counts": {
+          "outcome_streak": 145,
+          "progress_drought": 32
+        },
+        "streak_statistics": {
+          "longest_common_streak": 6,
+          "average_common_streak": 2.8,
+          "rare_plus_frequency": 0.05
+        },
+        "decay_events": {
+          "frustration_decay_count": 12,
+          "satisfaction_decay_count": 3
+        },
+        "acquisition_loop_analysis": {
+          "frustration_driven_decisions": 38,
+          "satisfaction_driven_decisions": 22,
+          "session_exits_at_peak_frustration": 15,
+          "session_exits_at_peak_satisfaction": 12,
+          "continued_despite_frustration": 11,
+          "pity_awareness_checks": 28,
+          "dupe_conversion_triggers": 12
+        }
+      },
+      "whale": {
+        "persona_id": "c3ef6a72-1086-7efb-e12c-4faf1c15ae31",
+        "total_sessions": 120,
+        "total_pulls": 1800,
+        "emotional_peaks": {
+          "frustration_max": 4.8,
+          "satisfaction_max": 8.5
+        },
+        "hook_activation_counts": {
+          "outcome_streak": 420,
+          "progress_drought": 8
+        },
+        "streak_statistics": {
+          "longest_common_streak": 4,
+          "average_common_streak": 1.8,
+          "rare_plus_frequency": 0.15
+        },
+        "decay_events": {
+          "frustration_decay_count": 85,
+          "satisfaction_decay_count": 1
+        },
+        "acquisition_loop_analysis": {
+          "frustration_driven_decisions": 12,
+          "satisfaction_driven_decisions": 95,
+          "session_exits_at_peak_frustration": 2,
+          "session_exits_at_peak_satisfaction": 48,
+          "continued_despite_frustration": 10,
+          "pity_awareness_checks": 8,
+          "dupe_conversion_triggers": 85
+        }
+      }
+    }
+  },
+  
+  "acquisition_loop_documentation": {
+    "frustration_decision_points": [
+      "Stop pulling after common streak (quit at peak frustration)",
+      "Continue pulling to reach pity (push through frustration)",
+      "Convert dupes to trigger frustration decay (-1.5)",
+      "Take break and return tomorrow (exit strategy)",
+      "Check pity counter for motivation and awareness"
+    ],
+    "satisfaction_decision_points": [
+      "Continue pulling after rare+ (ride satisfaction high)",
+      "Purchase next pack immediately (satisfaction momentum)",
+      "End session on high note (exit at satisfaction peak)",
+      "Return next session with positive memory (retention)",
+      "Experiment with higher tier packs (satisfaction confidence)"
+    ],
+    "phase_1_offline_focus": "Single-player, no social features. Focus on internal emotional loop and progression decisions.",
+    "phase_2_additions": {
+      "envy_decision_points": [
+        "View leaderboard and compare position",
+        "Purchase competitive pack to catch up",
+        "Increase session frequency to compete",
+        "Share pulls to gain social validation",
+        "Exit due to perceived disadvantage"
+      ]
+    }
+  },
+  
+  "acceptance_criteria": {
+    "test_f2p_casual_frustration": {
+      "expected": "Average frustration peak ≈ 7.5",
+      "tolerance": "±10%",
+      "validation": "High frustration from common streaks drives pity awareness"
+    },
+    "test_whale_satisfaction": {
+      "expected": "Average satisfaction peak ≈ 7.5",
+      "tolerance": "±10%",
+      "validation": "High baseline satisfaction from premium pack access"
+    },
+    "test_common_streak_frequency": {
+      "f2p_casual": "≈ 60% of pulls result in common streaks",
+      "whale": "≈ 30% of pulls result in common streaks"
+    },
+    "test_session_quit_probability": {
+      "f2p_casual": "≈ 25% quit at peak frustration",
+      "whale": "≈ 8% quit (most stable profile)"
+    }
+  }
+}

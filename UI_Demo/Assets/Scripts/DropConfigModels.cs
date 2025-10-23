@@ -40,11 +40,11 @@ namespace CCAS.Config
         public HookIntegration hook_integration; // Optional Phase-1 hooks
     }
 
-    [Serializable] 
-    public class Cost 
-    { 
-        public int coins; 
-        public int gems; 
+    [Serializable]
+    public class Cost
+    {
+        public int coins;
+        public int gems;
     }
 
     [Serializable]
@@ -135,5 +135,28 @@ namespace CCAS.Config
         public int total_xp_required;
         public int upgrade_cost_coins;
         public Dictionary<string, float> emotional_rewards;
+    }
+    /// <summary>
+    /// Schema root for phase1_config.json
+    /// </summary>
+    [Serializable]
+    public class Phase1ConfigRoot
+    {
+        public string schema_version;
+        public Phase1Configuration phase_1_configuration;
+        public Dictionary<string, PackType> pack_types;
+        public Dictionary<string, RarityTier> rarity_tiers;
+    }
+
+    /// <summary>phase_1_configuration block</summary>
+    [Serializable]
+    public class Phase1Configuration
+    {
+        public List<string> tracked_emotions;
+        public string session_persistence;
+        public float rare_boost_cap;
+        public float soft_cap_percentage;
+        public float escalation_factor;
+        public List<float> global_quiet_window_seconds;
     }
 }

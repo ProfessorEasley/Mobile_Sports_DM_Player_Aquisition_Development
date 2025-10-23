@@ -6,15 +6,15 @@ using Newtonsoft.Json;
 using CCAS.Config;
 
 /// <summary>
-/// Loads JSON-based pack configuration and handles randomized card pulls with pity logic.
-/// Compatible with both ccas_drop_config.json (full) and phase1_config.json (offline, 2-emotion).
+/// Loads Phase 1 JSON-based configuration from StreamingAssets and handles randomized card pulls with pity logic.
+/// Now uses phase1_config.json as the single source of truth.
 /// </summary>
 public class DropConfigManager : MonoBehaviour
 {
     public static DropConfigManager Instance;
 
     [Header("Runtime Config (Loaded JSON)")]
-    public DropConfigRoot config;   // Defined in DropConfigModels.cs
+    public Phase1ConfigRoot config;   // maps directly to phase1_config.json
 
     // Per-pack pity counters (session-scoped)
     private class PityState { public int sinceRare, sinceEpic, sinceLegendary; }
@@ -29,82 +29,45 @@ public class DropConfigManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Loads either ccas_drop_config.json (main) or phase1_config.json (offline test).
+    /// Loads phase1_config.json from StreamingAssets.
     /// </summary>
     void LoadConfig()
     {
-        string jsonText = null;
-        string pathMain = Path.Combine(Application.streamingAssetsPath, "ccas_drop_config.json");
-        string pathPhase1 = Path.Combine(Application.dataPath, "Resources/phase1_config.json");
+        string path = Path.Combine(Application.streamingAssetsPath, "phase1_config.json");
+        if (!File.Exists(path))
+        {
+            Debug.LogError($"[DropConfig] ❌ Config not found at {path}");
+            return;
+        }
 
         try
         {
-            if (File.Exists(pathMain))
+            string json = File.ReadAllText(path);
+            var settings = new JsonSerializerSettings
             {
-                jsonText = File.ReadAllText(pathMain);
-                Debug.Log("[DropConfig] Loaded primary config: ccas_drop_config.json");
-            }
-            else if (File.Exists(pathPhase1))
+                MissingMemberHandling = MissingMemberHandling.Ignore,
+                MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
+                FloatParseHandling = FloatParseHandling.Double
+            };
+
+            config = JsonConvert.DeserializeObject<Phase1ConfigRoot>(json, settings);
+            if (config?.pack_types != null && config.rarity_tiers != null)
             {
-                jsonText = File.ReadAllText(pathPhase1);
-                Debug.Log("[DropConfig] Loaded fallback config: phase1_config.json");
+                Debug.Log($"[DropConfig] ✅ Loaded {config.pack_types.Count} pack types and {config.rarity_tiers.Count} rarity tiers from phase1_config.json");
             }
             else
             {
-                // Final fallback: Resource text asset (drop_config or phase1_config)
-                var ta = Resources.Load<TextAsset>("phase1_config") ?? Resources.Load<TextAsset>("drop_config");
-                if (ta != null)
-                {
-                    jsonText = ta.text;
-                    Debug.Log("[DropConfig] Loaded config from Resources/");
-                }
+                Debug.LogError("[DropConfig] ❌ Missing pack_types or rarity_tiers in phase1_config.json");
             }
         }
         catch (Exception e)
         {
-            Debug.LogError("[DropConfig] Failed reading config: " + e.Message);
-        }
-
-        if (string.IsNullOrEmpty(jsonText))
-        {
-            Debug.LogError("[DropConfig] ❌ No config file found (checked StreamingAssets and Resources).");
-            return;
-        }
-
-        var settings = new JsonSerializerSettings
-        {
-            MissingMemberHandling = MissingMemberHandling.Ignore,
-            MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
-            FloatParseHandling = FloatParseHandling.Double,
-            Error = (sender, args) =>
-            {
-                Debug.LogWarning($"[DropConfig] JSON parse warning at {args.ErrorContext.Path}: {args.ErrorContext.Error.Message}");
-                args.ErrorContext.Handled = true;
-            }
-        };
-
-        try
-        {
-            config = JsonConvert.DeserializeObject<DropConfigRoot>(jsonText, settings);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError("[DropConfig] ❌ JSON failed to load: " + e.Message);
-            return;
-        }
-
-        if (config?.pack_types == null || config.rarity_tiers == null)
-        {
-            Debug.LogError("[DropConfig] ❌ Missing required sections in config.");
-        }
-        else
-        {
-            Debug.Log($"[DropConfig] ✅ Loaded {config.pack_types.Count} pack types and {config.rarity_tiers.Count} rarity tiers.");
+            Debug.LogError($"[DropConfig] ❌ Failed to load config: {e.Message}");
         }
     }
 
     /// <summary>
-    /// Simulates card pulls for the given pack type.
+    /// Simulates card pulls for a given pack type.
     /// Handles pity guarantees and logs results to Telemetry.
     /// </summary>
     public List<string> PullCardRarities(string packKey, out bool pityTriggered, out string pityType)
@@ -112,7 +75,7 @@ public class DropConfigManager : MonoBehaviour
         pityTriggered = false; pityType = null;
         var results = new List<string>();
 
-        if (config == null || !config.pack_types.ContainsKey(packKey))
+        if (config == null || config.pack_types == null || !config.pack_types.ContainsKey(packKey))
         {
             Debug.LogError($"[DropConfig] Pack type not found: {packKey}");
             return results;
@@ -223,4 +186,28 @@ public class DropConfigManager : MonoBehaviour
             _ => 0
         };
     }
+}
+
+/// <summary>
+/// Schema root for phase1_config.json
+/// </summary>
+[Serializable]
+public class Phase1ConfigRoot
+{
+    public string schema_version;
+    public Phase1Configuration phase_1_configuration;
+    public Dictionary<string, PackType> pack_types;
+    public Dictionary<string, RarityTier> rarity_tiers;
+}
+
+/// <summary>phase_1_configuration block</summary>
+[Serializable]
+public class Phase1Configuration
+{
+    public List<string> tracked_emotions;
+    public string session_persistence;
+    public float rare_boost_cap;
+    public float soft_cap_percentage;
+    public float escalation_factor;
+    public List<float> global_quiet_window_seconds;
 }
