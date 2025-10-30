@@ -1,38 +1,26 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
-using Newtonsoft.Json;
 
 /// <summary>
-/// Phase 1 Hook Orchestrator (StreamingAssets version)
-/// Controls when emotional or feedback hooks can trigger,
-/// with per-hook cooldowns, session caps, and a global quiet window.
-/// Reads tuning values from:
-///   - phase1_edge_cases.json  (hook + quiet-window config)
-///   - phase1_config.json      (optional fallback)
+/// Phase 1 Hook Orchestrator (Simplified)
+/// Controls when telemetry or emotion hooks can trigger,
+/// using cooldowns, session caps, and a global quiet window.
+/// No JSON configs — all values are hardcoded for now.
 /// </summary>
 public class HookOrchestrator : MonoBehaviour
 {
     public static HookOrchestrator Instance;
 
     [Header("Global Quiet Window (seconds)")]
+    [Tooltip("Range of time during which no new hooks can trigger globally.")]
     public Vector2 quietWindowRange = new Vector2(6f, 8f);
 
-    // --- Internal State ---
+    // --- Internal state tracking ---
     private float _globalQuietUntil;
     private readonly Dictionary<string, float> _cooldownsUntil = new();
     private readonly Dictionary<string, int> _sessionCaps = new();
 
-    // --- Config Models ---
-    private Phase1EdgeCasesRoot _edgeCases;
-
-    private readonly string edgeCasesPath = Path.Combine(Application.streamingAssetsPath, "phase1_edge_cases.json");
-    private readonly string configPath = Path.Combine(Application.streamingAssetsPath, "phase1_config.json");
-
-    // ------------------------------------------------------------
-    // Lifecycle
-    // ------------------------------------------------------------
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -40,18 +28,12 @@ public class HookOrchestrator : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-
         Instance = this;
         DontDestroyOnLoad(gameObject);
-        LoadPhase1EdgeCases();
     }
 
-    // ------------------------------------------------------------
-    // Public API
-    // ------------------------------------------------------------
-
     /// <summary>
-    /// Attempts to fire a hook with cooldown, session cap, and quiet window checks.
+    /// Attempts to fire a hook, enforcing cooldowns and global quiet windows.
     /// </summary>
     public bool TryFireHook(
         string hookId,
@@ -70,14 +52,14 @@ public class HookOrchestrator : MonoBehaviour
             return false;
         }
 
-        // Per-session cap
+        // Per-session cap check
         if (_sessionCaps.TryGetValue(hookId, out var used) && used >= sessionCap)
         {
             blockReason = "session_cap";
             return false;
         }
 
-        // Per-hook cooldown
+        // Per-hook cooldown check
         if (_cooldownsUntil.TryGetValue(hookId, out var cdUntil) && now < cdUntil)
         {
             blockReason = "cooldown";
@@ -88,7 +70,7 @@ public class HookOrchestrator : MonoBehaviour
         payloadAction?.Invoke();
 
         // Track usage
-        _cooldownsUntil[hookId] = now + cooldownSeconds + UnityEngine.Random.Range(0f, 0.5f);
+        _cooldownsUntil[hookId] = now + cooldownSeconds;
         _sessionCaps[hookId] = _sessionCaps.TryGetValue(hookId, out var cnt) ? cnt + 1 : 1;
 
         // Update quiet window
@@ -100,14 +82,18 @@ public class HookOrchestrator : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Triggered when a pack outcome occurs (e.g., after pack open).
+    /// Currently the only active hook in Phase 1.
+    /// </summary>
     public void TryTriggerOutcomeHooks(List<string> rarities)
     {
-        float cd = GetCooldownFor("outcome_streak", 5f);
-        int cap = GetSessionCapFor("outcome_streak", 5);
+        float cooldown = 5f; // simple fixed cooldown
+        int cap = 5;         // limit per session
 
         bool fired = TryFireHook(
             "outcome_streak",
-            cd,
+            cooldown,
             cap,
             () => TelemetryLogger.Instance?.LogHookExecution("outcome_streak", true, null, "outcome"),
             out string reason
@@ -117,23 +103,9 @@ public class HookOrchestrator : MonoBehaviour
             TelemetryLogger.Instance?.LogHookExecution("outcome_streak", false, reason, "outcome");
     }
 
-    public void TryTriggerFrustrationHook()
-    {
-        float cd = GetCooldownFor("progress_drought", 10f);
-        int cap = GetSessionCapFor("progress_drought", 3);
-
-        bool fired = TryFireHook(
-            "progress_drought",
-            cd,
-            cap,
-            () => TelemetryLogger.Instance?.LogHookExecution("progress_drought", true, null, "drought"),
-            out string reason
-        );
-
-        if (!fired)
-            TelemetryLogger.Instance?.LogHookExecution("progress_drought", false, reason, "drought");
-    }
-
+    /// <summary>
+    /// Clears cooldowns and session caps (useful for new session start).
+    /// </summary>
     public void ResetHooks()
     {
         _cooldownsUntil.Clear();
@@ -141,112 +113,4 @@ public class HookOrchestrator : MonoBehaviour
         _globalQuietUntil = 0f;
         Debug.Log("[HookOrchestrator] Hook state reset.");
     }
-
-    // ------------------------------------------------------------
-    // Config Handling
-    // ------------------------------------------------------------
-    private void LoadPhase1EdgeCases()
-    {
-        try
-        {
-            if (!File.Exists(edgeCasesPath))
-            {
-                Debug.LogWarning($"[HookOrchestrator] No edge-cases config found at {edgeCasesPath}");
-                return;
-            }
-
-            string json = File.ReadAllText(edgeCasesPath);
-            _edgeCases = JsonConvert.DeserializeObject<Phase1EdgeCasesRoot>(json);
-
-            // Pull quiet-window and escalation data
-            if (_edgeCases?.phase_1_hooks?.global_configuration != null)
-            {
-                var g = _edgeCases.phase_1_hooks.global_configuration;
-                if (g.quiet_window_seconds != null && g.quiet_window_seconds.Count == 2)
-                    quietWindowRange = new Vector2(g.quiet_window_seconds[0], g.quiet_window_seconds[1]);
-            }
-
-            Debug.Log($"[HookOrchestrator] ✅ Loaded edge-case hooks and quiet window: {quietWindowRange.x}-{quietWindowRange.y}s");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[HookOrchestrator] ❌ Failed to load: {e.Message}");
-        }
-    }
-
-    private float GetCooldownFor(string hookId, float fallback)
-    {
-        if (_edgeCases?.phase_1_hooks != null)
-        {
-            if (hookId.Contains("outcome") && _edgeCases.phase_1_hooks.outcome_streak_hook != null)
-                return 5f; // could read from hook definition if cooldown added later
-            if (hookId.Contains("progress") && _edgeCases.phase_1_hooks.progress_drought_hook != null)
-                return 10f;
-        }
-        return fallback;
-    }
-
-    private int GetSessionCapFor(string hookId, int fallback)
-    {
-        // No explicit cap in JSON; keep fallback
-        return fallback;
-    }
-}
-
-// ------------------------------------------------------------
-// Helper data models (subset of phase1_edge_cases.json)
-// ------------------------------------------------------------
-[Serializable]
-public class Phase1EdgeCasesRoot
-{
-    public string schema_version;
-    public Phase1Hooks phase_1_hooks;
-    public Phase1Guardrails phase_1_guardrails;
-}
-
-[Serializable]
-public class Phase1Hooks
-{
-    public Phase1GlobalConfig global_configuration;
-    public OutcomeStreakHook outcome_streak_hook;
-    public ProgressDroughtHook progress_drought_hook;
-}
-
-[Serializable]
-public class Phase1GlobalConfig
-{
-    public float escalation_factor;
-    public float soft_cap_percentage;
-    public float rare_multiplier_cap;
-    public List<float> quiet_window_seconds;
-    public bool session_persistence_only;
-}
-
-[Serializable]
-public class OutcomeStreakHook
-{
-    public string hook_id;
-    public string name;
-    public List<string> trigger_events;
-}
-
-[Serializable]
-public class ProgressDroughtHook
-{
-    public string hook_id;
-    public string name;
-    public List<string> trigger_events;
-}
-
-[Serializable]
-public class Phase1Guardrails
-{
-    public EmotionBounds emotion_bounds;
-}
-
-[Serializable]
-public class EmotionBounds
-{
-    public float min;
-    public float max;
 }

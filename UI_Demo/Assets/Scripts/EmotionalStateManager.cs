@@ -1,282 +1,193 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
-using Newtonsoft.Json;
 
 /// <summary>
-/// Phase 1 Emotional State Manager
-/// Tracks Frustration & Satisfaction dynamically using the new JSON suite:
-///   - phase1_config.json: global constants (EF, soft cap, etc.)
-///   - phase1_edge_cases.json: hook + decay formulas
-///   - phase1_persona.json: per-persona sensitivity and thresholds
+/// Phase 1 (Simplified) Emotional State Manager
+/// Implements normalized pack-quality → emotion deltas:
+///   - quality01 = (rawScore - minScore[pack]) / (maxScore[pack] - minScore[pack])
+///   - ΔSatisfaction = quality01 * S_max
+///   - ΔFrustration  = (1 - quality01) * F_max
+///
+/// Notes:
+/// - Emotion meters are 0–100
+/// - No EF / streak / decay logic; intentionally removed for clarity
+/// - Rarity values and pack bounds are hardcoded for Phase 1
+/// - Exposes S_max / F_max in Inspector for quick tuning
+/// - Provides last-delta getters for TelemetryLogger CSV
 /// </summary>
 public class EmotionalStateManager : MonoBehaviour
 {
     public static EmotionalStateManager Instance;
 
-    [Header("Global Config (Loaded JSON)")]
-    public float EF = 1.2f;
-    public float softCapPct = 0.85f;
-    public float rareBoostCap = 1.20f;
-    public float baseFrustration = 5f;
-    public float baseSatisfaction = 2f;
-    public float baseDrought = 3f;
-    public float frustrationDecay = 1.5f;
-    public float satisfactionDecay = 2.0f;
+    [Header("Emotion Meters (0–100)")]
+    [Range(0, 100)] public float frustration;
+    [Range(0, 100)] public float satisfaction;
 
-    [Header("Persona Tuning (Optional)")]
-    public string activePersona = "f2p_casual";
-    public float personaFrustrationSensitivity = 1.0f;
-    public float personaSatisfactionSensitivity = 1.0f;
-    public int personaStreakThreshold = 2;
+    [Header("Emotion Formula Settings")]
+    [Tooltip("Satisfaction gain at quality01 = 1.0")]
+    public float S_max = 3f;
+    [Tooltip("Frustration gain at quality01 = 0.0")]
+    public float F_max = 3f;
 
-    [Header("Emotions (0–10)")]
-    [Range(0, 10)] public float frustration;
-    [Range(0, 10)] public float satisfaction;
+    [Header("Debug")]
+    public bool verbose = true;
 
-    // Internal counters
-    private int _streakCommons;
-    private int _streakRarePlus;
-    private int _droughtCounter;
-    private float _tsLastProgress;
-    private float _tsLastAny;
-    private int _sessionsWithoutShareOrRare = 0;
+    // --- Logging variables for Telemetry ---
+    private float _lastFrustrationDelta;
+    private float _lastSatisfactionDelta;
+    private string _lastHookTriggered = "none"; // kept for CSV compatibility
+    private int _lastStreakLength = 0;          // not used in simplified model
+    private bool _lastRareBoostApplied = false; // not used in simplified model
 
-    // Paths
-    private readonly string pathConfig = Path.Combine(Application.streamingAssetsPath, "phase1_config.json");
-    private readonly string pathEdge = Path.Combine(Application.streamingAssetsPath, "phase1_edge_cases.json");
-    private readonly string pathPersona = Path.Combine(Application.streamingAssetsPath, "phase1_persona.json");
+    // --- Hardcoded rarity values (Phase 1) ---
+    // Common=1, Uncommon=2, Rare=3, Epic=4, Legendary=5
+    private readonly Dictionary<string, int> _rarityValue = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "common", 1 },
+        { "uncommon", 2 },
+        { "rare", 3 },
+        { "epic", 4 },
+        { "legendary", 5 }
+    };
+
+    // --- Hardcoded per-pack score bounds (from Phase 1 spec) ---
+    // Bronze: min 3 (1+1+1), max 7 (2+2+3)
+    // Silver: min 6 (2+2+2), max 12 (3+4+5)
+    // Gold:   min 9 (3+3+3), max 13 (4+4+5)
+    private struct Bounds { public int min; public int max; public Bounds(int mi, int ma){ min=mi; max=ma; } }
+    private readonly Bounds _bronzeBounds = new(3, 7);
+    private readonly Bounds _silverBounds = new(6, 12);
+    private readonly Bounds _goldBounds   = new(9, 13);
 
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         DontDestroyOnLoad(gameObject);
-
-        LoadPhase1Config();
-        LoadPersonaConfig(activePersona);
         ResetSession();
     }
 
-    // ----------------------------------------------------
-    // JSON LOADERS
-    // ----------------------------------------------------
-    void LoadPhase1Config()
-    {
-        try
-        {
-            if (!File.Exists(pathConfig))
-            {
-                Debug.LogError($"[Phase1Config] Missing: {pathConfig}");
-                return;
-            }
-
-            string json = File.ReadAllText(pathConfig);
-            var root = JsonConvert.DeserializeObject<Phase1ConfigRoot>(json);
-
-            if (root?.phase_1_configuration != null)
-            {
-                var cfg = root.phase_1_configuration;
-                EF = cfg.escalation_factor;
-                softCapPct = cfg.soft_cap_percentage;
-                rareBoostCap = cfg.rare_boost_cap;
-
-                Debug.Log($"[Phase1Config] ✅ Loaded global config: EF={EF}, softCap={softCapPct}, rareBoost={rareBoostCap}");
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[Phase1Config] ❌ Load failed: {e.Message}");
-        }
-    }
-
-    void LoadPersonaConfig(string personaKey)
-    {
-        try
-        {
-            if (!File.Exists(pathPersona))
-            {
-                Debug.LogWarning($"[PersonaConfig] Missing: {pathPersona}");
-                return;
-            }
-
-            string json = File.ReadAllText(pathPersona);
-            var personaRoot = JsonConvert.DeserializeObject<Phase1PersonaRoot>(json);
-            if (personaRoot?.phase_1_personas != null && personaRoot.phase_1_personas.ContainsKey(personaKey))
-            {
-                var persona = personaRoot.phase_1_personas[personaKey];
-                personaFrustrationSensitivity = persona.phase_1_emotional_profile.frustration.base_sensitivity;
-                personaSatisfactionSensitivity = persona.phase_1_emotional_profile.satisfaction.base_sensitivity;
-                personaStreakThreshold = persona.phase_1_emotional_profile.frustration.streak_threshold;
-
-                Debug.Log($"[PersonaConfig] ✅ Loaded persona '{persona.display_name}' — FrSens={personaFrustrationSensitivity}, SaSens={personaSatisfactionSensitivity}, Threshold={personaStreakThreshold}");
-            }
-            else
-            {
-                Debug.LogWarning($"[PersonaConfig] Persona not found: {personaKey}");
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[PersonaConfig] ❌ Load failed: {e.Message}");
-        }
-    }
-
-    // ----------------------------------------------------
-    // SESSION CONTROL
-    // ----------------------------------------------------
+    /// <summary>
+    /// Reset both meters to 0.
+    /// </summary>
     public void ResetSession()
     {
-        frustration = satisfaction = 0f;
-        _streakCommons = _streakRarePlus = 0;
-        _droughtCounter = 0;
-        _tsLastProgress = _tsLastAny = Time.time;
-        _sessionsWithoutShareOrRare = 0;
+        frustration = 0f;
+        satisfaction = 0f;
+        _lastFrustrationDelta = 0f;
+        _lastSatisfactionDelta = 0f;
+        _lastHookTriggered = "none";
+        _lastStreakLength = 0;
+        _lastRareBoostApplied = false;
     }
 
-    // ----------------------------------------------------
-    // EVENT HANDLERS
-    // ----------------------------------------------------
-    public EmotionDeltaResult HandleOutcomeEvent(List<string> rarities, bool pity, string pityType)
+    // ------------------------------------------------------------------------
+    // PUBLIC API
+    // ------------------------------------------------------------------------
+
+    /// <summary>
+    /// Apply the normalized emotion update for a pack outcome.
+    /// </summary>
+    /// <param name="packTypeKey">e.g., 'bronze_pack', 'silver_pack', 'gold_pack'</param>
+    /// <param name="rarities">List of rarity strings for the 3 pulls</param>
+    /// <param name="pityTriggered">unused (kept for compatibility)</param>
+    /// <param name="pityType">unused (kept for compatibility)</param>
+    /// <returns>EmotionDeltaResult with applied deltas</returns>
+    public EmotionDeltaResult ApplyPackOutcome(string packTypeKey, List<string> rarities, bool pityTriggered = false, string pityType = null)
     {
-        _tsLastAny = Time.time;
-
-        bool hasRarePlus = rarities.Exists(r =>
+        // 1) Compute raw score from rarities
+        int rawScore = 0;
+        if (rarities != null)
         {
-            string k = (r ?? "common").ToLowerInvariant();
-            return k == "rare" || k == "epic" || k == "legendary";
-        });
-
-        if (hasRarePlus)
-        {
-            _streakRarePlus++;
-            _streakCommons = 0;
-            _tsLastProgress = Time.time;
-        }
-        else
-        {
-            _streakCommons++;
-            _streakRarePlus = 0;
+            foreach (var r in rarities)
+            {
+                string key = string.IsNullOrEmpty(r) ? "common" : r.ToLowerInvariant();
+                rawScore += _rarityValue.TryGetValue(key, out var v) ? v : 1;
+            }
         }
 
-        _sessionsWithoutShareOrRare = hasRarePlus ? 0 : _sessionsWithoutShareOrRare + 1;
+        // 2) Get pack bounds
+        var b = GetBoundsForPack(packTypeKey);
 
-        var deltas = new EmotionDeltaResult();
+        // 3) Normalize to 0..1
+        float denom = Mathf.Max(1, b.max - b.min);
+        float quality01 = Mathf.Clamp01((rawScore - b.min) / denom);
 
-        // Frustration increase for common streaks
-        if (_streakCommons >= personaStreakThreshold)
-        {
-            float efPow = Mathf.Pow(EF, _streakCommons - 1);
-            deltas.frustration += baseFrustration * personaFrustrationSensitivity * efPow;
-        }
+        // 4) Convert to emotion deltas
+        float dSat = quality01 * S_max;
+        float dFr  = (1f - quality01) * F_max;
 
-        // Satisfaction increase for Rare+ pulls
-        if (hasRarePlus)
-        {
-            float efPow = Mathf.Pow(EF, Mathf.Max(0, _streakRarePlus - 1));
-            float delta = baseSatisfaction * personaSatisfactionSensitivity * efPow;
-            deltas.satisfaction += ApplyRarePlusCap(delta);
-        }
+        // 5) Apply and clamp to 0..100
+        float prevS = satisfaction;
+        float prevF = frustration;
 
-        ApplyPhase1Decay(hasRarePlus);
-        ApplyDeltasWithSoftCap(deltas);
+        satisfaction = Mathf.Clamp(satisfaction + dSat, 0f, 100f);
+        frustration  = Mathf.Clamp(frustration + dFr,  0f, 100f);
 
-        return deltas;
+        // 6) Record deltas for logging/CSV
+        _lastSatisfactionDelta = satisfaction - prevS;
+        _lastFrustrationDelta  = frustration  - prevF;
+        _lastHookTriggered = "none";
+        _lastStreakLength = 0;
+        _lastRareBoostApplied = false;
+
+        if (verbose)
+            Debug.Log($"[Emotion] pack={packTypeKey} raw={rawScore} bounds=[{b.min},{b.max}] q={quality01:F3}  ΔS={_lastSatisfactionDelta:F2}  ΔF={_lastFrustrationDelta:F2}  → S={satisfaction:F1} F={frustration:F1}");
+
+        return new EmotionDeltaResult { satisfaction = _lastSatisfactionDelta, frustration = _lastFrustrationDelta };
     }
 
-    public EmotionDeltaResult OnDroughtTick()
+    /// <summary>
+    /// Back-compat wrapper in case any code still calls the old method.
+    /// Uses a best-effort pack key guess (defaults to bronze bounds if unknown).
+    /// </summary>
+    [Obsolete("Use ApplyPackOutcome(packTypeKey, rarities, pityTriggered, pityType) instead.")]
+    public EmotionDeltaResult HandleOutcomeEvent(List<string> rarities, bool pityTriggered, string pityType)
     {
-        _tsLastAny = Time.time;
-        _droughtCounter++;
+        // Fallback guess: try to read the last-used pack from PackOpeningController if available
+        string packKey = "bronze_pack";
+        try
+        {
+            var opener = FindObjectOfType<PackOpeningController>();
+            if (opener != null && !string.IsNullOrEmpty(opener.packType))
+                packKey = opener.packType;
+        }
+        catch { /* ignore */ }
 
-        var deltas = new EmotionDeltaResult();
-        float efPow = Mathf.Pow(EF, Mathf.Max(0, _droughtCounter - 1));
-        deltas.frustration += baseDrought * personaFrustrationSensitivity * efPow;
-
-        ApplyPhase1Decay(false);
-        ApplyDeltasWithSoftCap(deltas);
-        return deltas;
+        return ApplyPackOutcome(packKey, rarities, pityTriggered, pityType);
     }
 
-    // ----------------------------------------------------
+    // ------------------------------------------------------------------------
     // INTERNAL HELPERS
-    // ----------------------------------------------------
-    float ApplyRarePlusCap(float deltaPositive)
+    // ------------------------------------------------------------------------
+    private Bounds GetBoundsForPack(string packTypeKey)
     {
-        return deltaPositive <= 0f ? deltaPositive : Mathf.Min(deltaPositive * rareBoostCap, 10f);
+        string k = (packTypeKey ?? string.Empty).ToLowerInvariant();
+
+        // Flexible string-matching so we don't depend on exact keys
+        if (k.Contains("bronze")) return _bronzeBounds;
+        if (k.Contains("silver")) return _silverBounds;
+        if (k.Contains("gold"))   return _goldBounds;
+
+        // If keys don't include names, try reading current config pack name (optional)
+        // Otherwise, default to Silver as a middle ground
+        return _silverBounds;
     }
 
-    void ApplyPhase1Decay(bool hasRarePlus)
-    {
-        if (!hasRarePlus && _sessionsWithoutShareOrRare >= 2)
-            satisfaction = Mathf.Max(0f, satisfaction - satisfactionDecay);
-    }
-
-    public void DecayFrustrationBonus()
-    {
-        frustration = Mathf.Max(0f, frustration - frustrationDecay);
-    }
-
-    void ApplyDeltasWithSoftCap(EmotionDeltaResult d)
-    {
-        float tgtF = Mathf.Clamp(frustration + d.frustration, 0f, 10f);
-        float tgtS = Mathf.Clamp(satisfaction + d.satisfaction, 0f, 10f);
-
-        frustration = SoftCap(frustration, tgtF, softCapPct);
-        satisfaction = SoftCap(satisfaction, tgtS, softCapPct);
-
-        frustration = Mathf.Clamp(frustration, 0f, 10f);
-        satisfaction = Mathf.Clamp(satisfaction, 0f, 10f);
-
-        Debug.Log($"[Emotion Update] Frustration={frustration:F2}  Satisfaction={satisfaction:F2}");
-    }
-
-    float SoftCap(float current, float target, float pct)
-    {
-        if (target <= current) return target;
-        float maxStep = current + (target - current) * pct;
-        return Mathf.Min(target, maxStep);
-    }
-
+    // Snapshot for UI
     public (float fr, float sa) Snapshot() => (frustration, satisfaction);
 
-    public void BreakOutcomeStreaks() => _streakCommons = _streakRarePlus = 0;
+    // Telemetry getters (CSV export depends on these)
+    public float GetLastFrustrationDelta() => _lastFrustrationDelta;
+    public float GetLastSatisfactionDelta() => _lastSatisfactionDelta;
+    public string GetLastHookTriggered() => _lastHookTriggered;
+    public int GetLastStreakLength() => _lastStreakLength;
+    public bool GetLastRareBoostApplied() => _lastRareBoostApplied;
 }
 
 public struct EmotionDeltaResult
 {
     public float frustration;
     public float satisfaction;
-}
-
-/// <summary>
-/// Persona schema partial (subset of phase1_persona.json)
-/// </summary>
-[Serializable]
-public class Phase1PersonaRoot
-{
-    public Dictionary<string, Phase1Persona> phase_1_personas;
-}
-
-[Serializable]
-public class Phase1Persona
-{
-    public string display_name;
-    public PersonaEmotionalProfile phase_1_emotional_profile;
-}
-
-[Serializable]
-public class PersonaEmotionalProfile
-{
-    public PersonaEmotion frustration;
-    public PersonaEmotion satisfaction;
-}
-
-[Serializable]
-public class PersonaEmotion
-{
-    public float base_sensitivity;
-    public int streak_threshold;
-    public float max_tolerance;
 }

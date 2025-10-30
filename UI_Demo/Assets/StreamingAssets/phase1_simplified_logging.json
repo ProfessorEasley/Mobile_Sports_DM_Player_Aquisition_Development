@@ -1,0 +1,580 @@
+{
+  "schema_version": "ccas.p1.v3_simplified",
+  "methodology": "normalized_quality_scoring",
+  
+  "pack_pull_log_schema": {
+    "event_id": "uuid-string-format",
+    "timestamp": "ISO-8601-string-format",
+    "session_id": "uuid-string-format",
+    "player_id": "uuid-string-format",
+    "player_level": "integer",
+    
+    "pack_info": {
+      "pack_type": "string - bronze_pack/silver_pack/gold_pack",
+      "pack_id": "string",
+      "cost_paid": {
+        "coins": "integer",
+        "gems": "integer"
+      },
+      "purchase_method": "string - coins/gems/free/reward",
+      "pack_score_range": {
+        "min_score": "integer - minimum possible score for this pack type",
+        "max_score": "integer - maximum possible score for this pack type"
+      }
+    },
+    
+    "pull_results": [
+      {
+        "card_id": "uuid-string",
+        "card_name": "string",
+        "rarity": "string - common/uncommon/rare/epic/legendary",
+        "rarity_numeric_value": "integer - 1/2/3/4/5",
+        "is_duplicate": "boolean",
+        "xp_gained": "integer",
+        "dust_gained": "integer"
+      }
+    ],
+    
+    "pack_quality_calculation": {
+      "raw_score": "integer - sum of all card numeric values",
+      "raw_score_calculation": "string - showing the addition (e.g., '3 + 3 + 3 = 9')",
+      "min_score": "integer - from pack_info.pack_score_range.min_score",
+      "max_score": "integer - from pack_info.pack_score_range.max_score",
+      "quality01": "float - normalized quality between 0.0 and 1.0",
+      "quality01_formula": "string - '(rawScore - minScore) / (maxScore - minScore)'",
+      "quality01_calculation": "string - showing the actual calculation with numbers"
+    },
+    
+    "emotional_impact": {
+      "S_max": "float - maximum satisfaction parameter (e.g., 10.0)",
+      "F_max": "float - maximum frustration parameter (e.g., 10.0)",
+      "satisfaction_delta": "float - quality01 × S_max",
+      "satisfaction_formula": "string - showing calculation",
+      "frustration_delta": "float - (1 - quality01) × F_max",
+      "frustration_formula": "string - showing calculation"
+    },
+    
+    "emotional_state": {
+      "frustration": {
+        "value_before": "float - frustration before this pack",
+        "value_after": "float - frustration after this pack",
+        "delta_this_pack": "float - change from this pack"
+      },
+      "satisfaction": {
+        "value_before": "float - satisfaction before this pack",
+        "value_after": "float - satisfaction after this pack",
+        "delta_this_pack": "float - change from this pack"
+      }
+    },
+    
+    "pity_state": {
+      "pulls_since_rare": "integer",
+      "pulls_since_epic": "integer",
+      "pulls_since_legendary": "integer",
+      "pity_triggered": "boolean",
+      "pity_type": "string - rare/epic/legendary/none"
+    }
+  },
+  
+  "sample_logs": [
+    {
+      "event_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "timestamp": "2025-01-27T14:30:52.123Z",
+      "session_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "player_id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+      "player_level": 15,
+      
+      "pack_info": {
+        "pack_type": "gold_pack",
+        "pack_id": "gold_001",
+        "cost_paid": {
+          "coins": 2000,
+          "gems": 100
+        },
+        "purchase_method": "gems",
+        "pack_score_range": {
+          "min_score": 9,
+          "max_score": 13
+        }
+      },
+      
+      "pull_results": [
+        {
+          "card_id": "d4e5f6a7-b8c9-0123-defa-456789012345",
+          "card_name": "Rare Knight",
+          "rarity": "rare",
+          "rarity_numeric_value": 3,
+          "is_duplicate": false,
+          "xp_gained": 50,
+          "dust_gained": 0
+        },
+        {
+          "card_id": "e5f6a7b8-c9d0-1234-efab-567890123456",
+          "card_name": "Rare Mage",
+          "rarity": "rare",
+          "rarity_numeric_value": 3,
+          "is_duplicate": false,
+          "xp_gained": 50,
+          "dust_gained": 0
+        },
+        {
+          "card_id": "f6a7b8c9-d0e1-2345-fabc-678901234567",
+          "card_name": "Rare Archer",
+          "rarity": "rare",
+          "rarity_numeric_value": 3,
+          "is_duplicate": true,
+          "xp_gained": 50,
+          "dust_gained": 20
+        }
+      ],
+      
+      "pack_quality_calculation": {
+        "raw_score": 9,
+        "raw_score_calculation": "3 + 3 + 3 = 9",
+        "min_score": 9,
+        "max_score": 13,
+        "quality01": 0.0,
+        "quality01_formula": "(rawScore - minScore) / (maxScore - minScore)",
+        "quality01_calculation": "(9 - 9) / (13 - 9) = 0.0"
+      },
+      
+      "emotional_impact": {
+        "S_max": 10.0,
+        "F_max": 10.0,
+        "satisfaction_delta": 0.0,
+        "satisfaction_formula": "0.0 × 10.0 = 0.0",
+        "frustration_delta": 10.0,
+        "frustration_formula": "(1 - 0.0) × 10.0 = 10.0"
+      },
+      
+      "emotional_state": {
+        "frustration": {
+          "value_before": 5.0,
+          "value_after": 15.0,
+          "delta_this_pack": 10.0
+        },
+        "satisfaction": {
+          "value_before": 12.0,
+          "value_after": 12.0,
+          "delta_this_pack": 0.0
+        }
+      },
+      
+      "pity_state": {
+        "pulls_since_rare": 0,
+        "pulls_since_epic": 35,
+        "pulls_since_legendary": 68,
+        "pity_triggered": false,
+        "pity_type": "none"
+      }
+    },
+    {
+      "event_id": "b1c2d3e4-f5a6-8901-bcde-fa1234567891",
+      "timestamp": "2025-01-27T14:32:15.456Z",
+      "session_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "player_id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+      "player_level": 15,
+      
+      "pack_info": {
+        "pack_type": "bronze_pack",
+        "pack_id": "bronze_001",
+        "cost_paid": {
+          "coins": 1000,
+          "gems": 0
+        },
+        "purchase_method": "coins",
+        "pack_score_range": {
+          "min_score": 3,
+          "max_score": 7
+        }
+      },
+      
+      "pull_results": [
+        {
+          "card_id": "c2d3e4f5-a6b7-9012-cdef-b12345678902",
+          "card_name": "Uncommon Warrior",
+          "rarity": "uncommon",
+          "rarity_numeric_value": 2,
+          "is_duplicate": false,
+          "xp_gained": 20,
+          "dust_gained": 0
+        },
+        {
+          "card_id": "d3e4f5a6-b7c8-0123-defa-c23456789013",
+          "card_name": "Uncommon Defender",
+          "rarity": "uncommon",
+          "rarity_numeric_value": 2,
+          "is_duplicate": false,
+          "xp_gained": 20,
+          "dust_gained": 0
+        },
+        {
+          "card_id": "e4f5a6b7-c8d9-1234-efab-d34567890124",
+          "card_name": "Rare Hero",
+          "rarity": "rare",
+          "rarity_numeric_value": 3,
+          "is_duplicate": false,
+          "xp_gained": 50,
+          "dust_gained": 0
+        }
+      ],
+      
+      "pack_quality_calculation": {
+        "raw_score": 7,
+        "raw_score_calculation": "2 + 2 + 3 = 7",
+        "min_score": 3,
+        "max_score": 7,
+        "quality01": 1.0,
+        "quality01_formula": "(rawScore - minScore) / (maxScore - minScore)",
+        "quality01_calculation": "(7 - 3) / (7 - 3) = 1.0"
+      },
+      
+      "emotional_impact": {
+        "S_max": 10.0,
+        "F_max": 10.0,
+        "satisfaction_delta": 10.0,
+        "satisfaction_formula": "1.0 × 10.0 = 10.0",
+        "frustration_delta": 0.0,
+        "frustration_formula": "(1 - 1.0) × 10.0 = 0.0"
+      },
+      
+      "emotional_state": {
+        "frustration": {
+          "value_before": 15.0,
+          "value_after": 15.0,
+          "delta_this_pack": 0.0
+        },
+        "satisfaction": {
+          "value_before": 12.0,
+          "value_after": 22.0,
+          "delta_this_pack": 10.0
+        }
+      },
+      
+      "pity_state": {
+        "pulls_since_rare": 0,
+        "pulls_since_epic": 36,
+        "pulls_since_legendary": 69,
+        "pity_triggered": false,
+        "pity_type": "none"
+      }
+    },
+    {
+      "event_id": "c1d2e3f4-a5b6-9012-cdef-ab1234567892",
+      "timestamp": "2025-01-27T14:35:42.789Z",
+      "session_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "player_id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+      "player_level": 16,
+      
+      "pack_info": {
+        "pack_type": "silver_pack",
+        "pack_id": "silver_001",
+        "cost_paid": {
+          "coins": 1500,
+          "gems": 50
+        },
+        "purchase_method": "gems",
+        "pack_score_range": {
+          "min_score": 6,
+          "max_score": 12
+        }
+      },
+      
+      "pull_results": [
+        {
+          "card_id": "d2e3f4a5-b6c7-0123-defa-bc2345678903",
+          "card_name": "Uncommon Scout",
+          "rarity": "uncommon",
+          "rarity_numeric_value": 2,
+          "is_duplicate": true,
+          "xp_gained": 20,
+          "dust_gained": 10
+        },
+        {
+          "card_id": "e3f4a5b6-c7d8-1234-efab-cd3456789014",
+          "card_name": "Rare Paladin",
+          "rarity": "rare",
+          "rarity_numeric_value": 3,
+          "is_duplicate": false,
+          "xp_gained": 50,
+          "dust_gained": 0
+        },
+        {
+          "card_id": "f4a5b6c7-d8e9-2345-fabc-de4567890125",
+          "card_name": "Rare Wizard",
+          "rarity": "rare",
+          "rarity_numeric_value": 3,
+          "is_duplicate": false,
+          "xp_gained": 50,
+          "dust_gained": 0
+        }
+      ],
+      
+      "pack_quality_calculation": {
+        "raw_score": 8,
+        "raw_score_calculation": "2 + 3 + 3 = 8",
+        "min_score": 6,
+        "max_score": 12,
+        "quality01": 0.333,
+        "quality01_formula": "(rawScore - minScore) / (maxScore - minScore)",
+        "quality01_calculation": "(8 - 6) / (12 - 6) = 0.333"
+      },
+      
+      "emotional_impact": {
+        "S_max": 10.0,
+        "F_max": 10.0,
+        "satisfaction_delta": 3.33,
+        "satisfaction_formula": "0.333 × 10.0 = 3.33",
+        "frustration_delta": 6.67,
+        "frustration_formula": "(1 - 0.333) × 10.0 = 6.67"
+      },
+      
+      "emotional_state": {
+        "frustration": {
+          "value_before": 15.0,
+          "value_after": 21.67,
+          "delta_this_pack": 6.67
+        },
+        "satisfaction": {
+          "value_before": 22.0,
+          "value_after": 25.33,
+          "delta_this_pack": 3.33
+        }
+      },
+      
+      "pity_state": {
+        "pulls_since_rare": 0,
+        "pulls_since_epic": 37,
+        "pulls_since_legendary": 70,
+        "pity_triggered": false,
+        "pity_type": "none"
+      }
+    },
+    {
+      "event_id": "d1e2f3a4-b5c6-0123-defa-bc1234567893",
+      "timestamp": "2025-01-27T14:38:20.123Z",
+      "session_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "player_id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+      "player_level": 16,
+      
+      "pack_info": {
+        "pack_type": "silver_pack",
+        "pack_id": "silver_001",
+        "cost_paid": {
+          "coins": 1500,
+          "gems": 50
+        },
+        "purchase_method": "gems",
+        "pack_score_range": {
+          "min_score": 6,
+          "max_score": 12
+        }
+      },
+      
+      "pull_results": [
+        {
+          "card_id": "e2f3a4b5-c6d7-1234-efab-cd2345678904",
+          "card_name": "Rare Assassin",
+          "rarity": "rare",
+          "rarity_numeric_value": 3,
+          "is_duplicate": false,
+          "xp_gained": 50,
+          "dust_gained": 0
+        },
+        {
+          "card_id": "f3a4b5c6-d7e8-2345-fabc-de3456789015",
+          "card_name": "Epic Dragon",
+          "rarity": "epic",
+          "rarity_numeric_value": 4,
+          "is_duplicate": false,
+          "xp_gained": 100,
+          "dust_gained": 0
+        },
+        {
+          "card_id": "a4b5c6d7-e8f9-3456-abcd-ef4567890126",
+          "card_name": "Legendary Phoenix",
+          "rarity": "legendary",
+          "rarity_numeric_value": 5,
+          "is_duplicate": false,
+          "xp_gained": 200,
+          "dust_gained": 0
+        }
+      ],
+      
+      "pack_quality_calculation": {
+        "raw_score": 12,
+        "raw_score_calculation": "3 + 4 + 5 = 12",
+        "min_score": 6,
+        "max_score": 12,
+        "quality01": 1.0,
+        "quality01_formula": "(rawScore - minScore) / (maxScore - minScore)",
+        "quality01_calculation": "(12 - 6) / (12 - 6) = 1.0"
+      },
+      
+      "emotional_impact": {
+        "S_max": 10.0,
+        "F_max": 10.0,
+        "satisfaction_delta": 10.0,
+        "satisfaction_formula": "1.0 × 10.0 = 10.0",
+        "frustration_delta": 0.0,
+        "frustration_formula": "(1 - 1.0) × 10.0 = 0.0"
+      },
+      
+      "emotional_state": {
+        "frustration": {
+          "value_before": 21.67,
+          "value_after": 21.67,
+          "delta_this_pack": 0.0
+        },
+        "satisfaction": {
+          "value_before": 25.33,
+          "value_after": 35.33,
+          "delta_this_pack": 10.0
+        }
+      },
+      
+      "pity_state": {
+        "pulls_since_rare": 0,
+        "pulls_since_epic": 0,
+        "pulls_since_legendary": 0,
+        "pity_triggered": false,
+        "pity_type": "none"
+      }
+    }
+  ],
+  
+  "session_telemetry_schema": {
+    "session_id": "uuid-string",
+    "player_id": "uuid-string",
+    "session_start": "ISO-8601-string",
+    "session_end": "ISO-8601-string",
+    
+    "emotional_journey": [
+      {
+        "timestamp": "ISO-8601-string",
+        "event_type": "string - pack_pull",
+        "pack_type": "string - bronze/silver/gold",
+        "quality01": "float - normalized quality of this pack",
+        "frustration": "float - frustration after this event",
+        "satisfaction": "float - satisfaction after this event",
+        "frustration_delta": "float - change in frustration",
+        "satisfaction_delta": "float - change in satisfaction"
+      }
+    ],
+    
+    "session_summary": {
+      "total_packs": "integer - total packs opened this session",
+      "total_cards": "integer - total cards pulled",
+      "packs_by_type": {
+        "bronze": "integer",
+        "silver": "integer",
+        "gold": "integer"
+      },
+      "rarity_distribution": {
+        "common": "integer",
+        "uncommon": "integer",
+        "rare": "integer",
+        "epic": "integer",
+        "legendary": "integer"
+      },
+      "quality_statistics": {
+        "min_quality01": "float - worst normalized quality this session",
+        "max_quality01": "float - best normalized quality this session",
+        "avg_quality01": "float - average normalized quality",
+        "median_quality01": "float - median normalized quality"
+      },
+      "emotional_statistics": {
+        "starting_frustration": "float",
+        "ending_frustration": "float",
+        "frustration_change": "float",
+        "starting_satisfaction": "float",
+        "ending_satisfaction": "float",
+        "satisfaction_change": "float",
+        "peak_frustration": "float - highest frustration reached",
+        "peak_satisfaction": "float - highest satisfaction reached"
+      }
+    }
+  },
+  
+  "acquisition_loop_documentation": {
+    "frustration_impact": {
+      "description": "Tracks player disappointment when pack results are below average for that pack type",
+      "calculation": "Frustration = (1 - quality01) × F_max",
+      "interpretation": {
+        "quality01_0.0": "Worst possible pack → Maximum frustration",
+        "quality01_0.5": "Average pack → Moderate frustration",
+        "quality01_1.0": "Best possible pack → Zero frustration"
+      },
+      "feeds_into": [
+        "Pack purchase hesitation",
+        "Session exit probability",
+        "Negative sentiment about pack value"
+      ]
+    },
+    "satisfaction_impact": {
+      "description": "Tracks player fulfillment when pack results are above average for that pack type",
+      "calculation": "Satisfaction = quality01 × S_max",
+      "interpretation": {
+        "quality01_0.0": "Worst possible pack → Zero satisfaction",
+        "quality01_0.5": "Average pack → Moderate satisfaction",
+        "quality01_1.0": "Best possible pack → Maximum satisfaction"
+      },
+      "feeds_into": [
+        "Continued engagement probability",
+        "Return session motivation",
+        "Pack purchase confidence",
+        "Positive sentiment about pack value"
+      ]
+    },
+    "normalization_benefit": {
+      "description": "By normalizing each pack relative to its own range, players experience appropriate emotions based on their expectations",
+      "example": "A Bronze pack's best outcome feels rewarding (quality01=1.0) even though the raw score (7) is lower than a Gold pack's worst outcome (9)"
+    }
+  },
+  
+  "acceptance_criteria": {
+    "test_1_normalization_logging": {
+      "scenario": "Gold pack worst (3×Rare) vs Bronze pack best (2×Uncommon + 1×Rare)",
+      "gold_pack": {
+        "raw_score": 9,
+        "quality01": 0.0,
+        "satisfaction_delta": 0.0,
+        "frustration_delta": 10.0
+      },
+      "bronze_pack": {
+        "raw_score": 7,
+        "quality01": 1.0,
+        "satisfaction_delta": 10.0,
+        "frustration_delta": 0.0
+      },
+      "expected": "Log should show opposite emotional responses despite Gold having higher raw score"
+    },
+    "test_2_calculation_transparency": {
+      "expected_fields": [
+        "raw_score_calculation (showing the addition)",
+        "quality01_calculation (showing the normalization)",
+        "satisfaction_formula (showing the multiplication)",
+        "frustration_formula (showing the multiplication)"
+      ],
+      "purpose": "Developers and analysts can verify calculations are correct"
+    },
+    "test_3_emotional_state_tracking": {
+      "expected": "Each log shows value_before, value_after, and delta_this_pack for both emotions",
+      "purpose": "Track cumulative emotional journey across multiple packs"
+    },
+    "test_4_session_summary": {
+      "expected_fields": [
+        "quality_statistics (min, max, avg quality01)",
+        "emotional_statistics (starting, ending, change, peaks)"
+      ],
+      "purpose": "Understand overall session experience and emotional arc"
+    }
+  },
+  
+  "implementation_notes": {
+    "simplicity": "This logging schema matches the simplified calculation approach - no per-card tracking, no streaks, no special multipliers",
+    "transparency": "All calculations are shown step-by-step for easy verification and debugging",
+    "scalability": "Session telemetry aggregates data for analytics without requiring query of individual pack logs",
+    "future_enhancements": "Once validated, can add: per-card contributions, streak tracking, rare boost logging, soft cap indicators, decay events"
+  }
+}

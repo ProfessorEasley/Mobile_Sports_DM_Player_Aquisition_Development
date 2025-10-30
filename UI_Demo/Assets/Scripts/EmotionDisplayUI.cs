@@ -3,7 +3,7 @@ using TMPro;
 
 /// <summary>
 /// Displays real-time emotional state (Frustration & Satisfaction)
-/// with smooth transitions and color intensity based on emotion levels.
+/// with smooth transitions and color intensity based on emotion levels (0–100).
 /// </summary>
 public class EmotionDisplayUI : MonoBehaviour
 {
@@ -46,16 +46,16 @@ public class EmotionDisplayUI : MonoBehaviour
         // Update texts (with null safety)
         if (frustrationText != null)
         {
-            frustrationText.text = $"Frustration: {_displayFr:F2}";
-            float intensity = Mathf.InverseLerp(0f, 10f, _displayFr);
+            frustrationText.text = $"Frustration: {_displayFr:F1}";
+            float intensity = Mathf.InverseLerp(0f, 100f, _displayFr);
             frustrationText.color = Color.Lerp(Color.white, Color.red, intensity);
-            frustrationText.alpha = Mathf.Clamp01(intensity + 0.3f); // small fade-in
+            frustrationText.alpha = Mathf.Clamp01(intensity + 0.3f);
         }
 
         if (satisfactionText != null)
         {
-            satisfactionText.text = $"Satisfaction: {_displaySa:F2}";
-            float intensity = Mathf.InverseLerp(0f, 10f, _displaySa);
+            satisfactionText.text = $"Satisfaction: {_displaySa:F1}";
+            float intensity = Mathf.InverseLerp(0f, 100f, _displaySa);
             satisfactionText.color = Color.Lerp(Color.white, Color.green, intensity);
             satisfactionText.alpha = Mathf.Clamp01(intensity + 0.3f);
         }

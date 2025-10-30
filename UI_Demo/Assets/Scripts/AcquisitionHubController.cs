@@ -3,9 +3,8 @@ using TMPro;
 using UnityEngine.UI;
 
 /// <summary>
-/// Controls navigation between Hub, Market, and Pack Opening panels.
-/// Handles basic currency display and default pack setup.
-/// Phase 1-ready: includes hooks for future emotion/telemetry resets.
+/// Central controller for navigation between all panels.
+/// Ensures only one main panel (Hub, Market, PackOpening, History) is visible at a time.
 /// </summary>
 public class AcquisitionHubController : MonoBehaviour
 {
@@ -14,62 +13,59 @@ public class AcquisitionHubController : MonoBehaviour
 
     [Header("Buttons")]
     public Button goToMarketButton;
-    public Button openPackButton;
+    public Button myPacksButton; // Previously openPackButton
 
     [Header("Panels")]
     public GameObject hubPanel;
     public GameObject marketPanel;
     public GameObject packPanel;
-
-    [Header("Defaults")]
-    [Tooltip("Default pack key used when opening directly from hub.")]
-    public string defaultPackKey = "basic_pack";
+    public GameObject dropHistoryPanel;
+    public GameObject myPacksPanel; // Placeholder for later
 
     void Start()
     {
-        // --- Validate references ---
-        if (coinsText == null)
-            Debug.LogWarning("[Hub] coinsText not assigned in Inspector.");
-        if (goToMarketButton == null || openPackButton == null)
-            Debug.LogWarning("[Hub] Buttons not assigned in Inspector.");
-        if (hubPanel == null || marketPanel == null || packPanel == null)
-            Debug.LogWarning("[Hub] Panels not assigned in Inspector.");
-
-        // --- Display placeholder currency (could be replaced by PlayerWallet later) ---
         if (coinsText != null)
             coinsText.text = "Coins: 1200";
 
-        // --- Navigation listeners ---
         if (goToMarketButton != null)
+            goToMarketButton.onClick.AddListener(ShowMarket);
+
+        // Disable My Packs for now
+        if (myPacksButton != null)
         {
-            goToMarketButton.onClick.AddListener(() =>
-            {
-                hubPanel?.SetActive(false);
-                marketPanel?.SetActive(true);
-            });
+            myPacksButton.interactable = false;
+            myPacksButton.onClick.AddListener(ShowMyPacks); // Won’t do anything yet
         }
 
-        if (openPackButton != null)
-        {
-            openPackButton.onClick.AddListener(() =>
-            {
-                hubPanel?.SetActive(false);
-                packPanel?.SetActive(true);
+        ShowHub();
+    }
 
-                // Optional: reset emotional state at session start (if needed)
-                EmotionalStateManager.Instance?.ResetSession();
+    // --- Navigation Helpers ---
+    public void ShowHub() => SetActivePanel(hubPanel);
+    public void ShowMarket() => SetActivePanel(marketPanel);
+    public void ShowMyPacks() => SetActivePanel(myPacksPanel);
 
-                // Configure PackOpeningController
-                var opener = packPanel?.GetComponentInChildren<PackOpeningController>(true);
-                if (opener != null)
-                {
-                    opener.packType = defaultPackKey;
-                }
-                else
-                {
-                    Debug.LogWarning("[Hub] No PackOpeningController found under packPanel.");
-                }
-            });
-        }
+    public void ShowPackOpening(string packKey)
+    {
+        SetActivePanel(packPanel);
+
+        var opener = packPanel?.GetComponentInChildren<PackOpeningController>(true);
+        if (opener != null)
+            opener.OpenPackOfType(packKey);
+    }
+
+    public void ShowHistory()
+    {
+        SetActivePanel(dropHistoryPanel);
+    }
+
+    private void SetActivePanel(GameObject active)
+    {
+        hubPanel?.SetActive(active == hubPanel);
+        marketPanel?.SetActive(active == marketPanel);
+        packPanel?.SetActive(active == packPanel);
+        dropHistoryPanel?.SetActive(active == dropHistoryPanel);
+        if (myPacksPanel != null)
+            myPacksPanel.SetActive(active == myPacksPanel);
     }
 }
