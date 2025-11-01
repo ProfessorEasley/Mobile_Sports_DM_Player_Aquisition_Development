@@ -67,10 +67,8 @@ public class DropConfigManager : MonoBehaviour
     /// <summary>
     /// Simulates card pulls for a given pack type and returns a list of rarity strings.
     /// </summary>
-    public List<string> PullCardRarities(string packKey, out bool pityTriggered, out string pityType)
+    public List<string> PullCardRarities(string packKey)
     {
-        pityTriggered = false;
-        pityType = null;
 
         var results = new List<string>();
 
@@ -89,17 +87,6 @@ public class DropConfigManager : MonoBehaviour
             string rarity = WeightedRoll(rates);
             results.Add(rarity);
         }
-
-        // Telemetry: adapted for new model (no pity counters, no gems)
-        TelemetryLogger.Instance?.LogPull(
-            packKey,
-            pack.name,           // using human-readable name as ID
-            pack.cost,
-            results,
-            pityTriggered,
-            pityType
-        );
-
         return results;
     }
 

@@ -5,9 +5,9 @@ using UnityEngine;
 using Newtonsoft.Json;
 
 /// <summary>
-/// Phase 1 Telemetry Logger (Simplified)
-/// Records pack pulls, emotional state snapshot, and hook executions.
-/// Persists to JSON across sessions and exports a CSV with frustration/satisfaction deltas.
+/// Simplified Telemetry Logger (Phase 1)
+/// Records one log per pack pull with emotional snapshot.
+/// Stores data as JSON and exports frustration/satisfaction deltas to CSV.
 /// </summary>
 public class TelemetryLogger : MonoBehaviour
 {
@@ -23,10 +23,6 @@ public class TelemetryLogger : MonoBehaviour
 
     public event Action<PackPullLog> OnPullLogged;
 
-    // Schema (optional), now fully nullable-safe
-    private Phase1LoggingRoot _loggingSchema;
-    private readonly string loggingSchemaPath = Path.Combine(Application.streamingAssetsPath, "phase1_logging.json");
-
     [Serializable]
     private class LogWrapper { public List<PackPullLog> logs = new(); }
     private LogWrapper cached = new();
@@ -36,42 +32,26 @@ public class TelemetryLogger : MonoBehaviour
     // -------------------------------------------------------------------------
     void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        var dir = Path.Combine(Application.persistentDataPath, "Telemetry");
+        string dir = Path.Combine(Application.persistentDataPath, "Telemetry");
         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
         logFilePath = Path.Combine(dir, "pull_history.json");
+
         csvDirPath = Path.Combine(dir, "csv_exports");
         if (!Directory.Exists(csvDirPath)) Directory.CreateDirectory(csvDirPath);
 
-        LoadLoggingSchema();
         LoadCachedFile();
     }
 
-    void LoadLoggingSchema()
-    {
-        try
-        {
-            if (!File.Exists(loggingSchemaPath))
-            {
-                Debug.LogWarning($"[Telemetry] No logging schema found at {loggingSchemaPath}");
-                _loggingSchema = null;
-                return;
-            }
-
-            string json = File.ReadAllText(loggingSchemaPath);
-            _loggingSchema = JsonConvert.DeserializeObject<Phase1LoggingRoot>(json);
-            Debug.Log($"[Telemetry] ✅ Loaded logging schema: {_loggingSchema?.phase_1_log_definitions?.Count ?? 0} definitions");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[Telemetry] ❌ Failed to load schema: {e.Message}");
-        }
-    }
-
-    void LoadCachedFile()
+    private void LoadCachedFile()
     {
         if (File.Exists(logFilePath))
         {
@@ -85,19 +65,16 @@ public class TelemetryLogger : MonoBehaviour
                 cached = new LogWrapper();
             }
         }
-        else SaveFile();
+        else
+        {
+            SaveFile();
+        }
     }
 
     // -------------------------------------------------------------------------
-    // MAIN LOGGING API (SIMPLIFIED SIGNATURE)
+    // MAIN LOGGING API
     // -------------------------------------------------------------------------
-    public void LogPull(
-        string packTypeKey,
-        string packName,
-        int packCostCoins,
-        List<string> rarities,
-        bool pityTriggered,
-        string pityType)
+    public void LogPull(string packTypeKey, string packName, int packCostCoins, List<string> rarities)
     {
         try
         {
@@ -113,30 +90,18 @@ public class TelemetryLogger : MonoBehaviour
                 pack_type = packTypeKey,
                 pack_name = packName,
                 cost_coins = packCostCoins,
-                pull_results = new List<PullResult>(),
-                pity_triggered = pityTriggered,
-                pity_type = pityType
+                pull_results = new List<string>(rarities)
             };
 
-            // Card results list
-            foreach (var r in rarities)
-            {
-                ev.pull_results.Add(new PullResult
-                {
-                    rarity = r ?? "common"
-                });
-            }
-
-            // Emotional snapshot
+            // Emotional snapshot (after pull)
             if (EmotionalStateManager.Instance != null)
             {
                 var (fr, sa) = EmotionalStateManager.Instance.Snapshot();
                 ev.satisfaction_after = sa;
                 ev.frustration_after = fr;
-                ev.cumulative_score = sa - fr;
             }
 
-            // Store in memory + save
+            // Save to cache
             cached.logs.Add(ev);
             if (cached.logs.Count > MaxLogs)
                 cached.logs.RemoveRange(0, cached.logs.Count - MaxLogs);
@@ -146,8 +111,7 @@ public class TelemetryLogger : MonoBehaviour
 
             if (verboseLogging)
             {
-                string rarStr = rarities.Count > 0 ? string.Join(", ", rarities) : "(none)";
-                Debug.Log($"[Telemetry] Logged {packTypeKey} → [{rarStr}] | pity={pityTriggered}:{pityType ?? "-"} | logs={cached.logs.Count}");
+                Debug.Log($"[Telemetry] Logged {packTypeKey} → [{string.Join(", ", rarities)}] | logs={cached.logs.Count}");
             }
 
             OnPullLogged?.Invoke(ev);
@@ -159,7 +123,7 @@ public class TelemetryLogger : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
-    // HOOK LOGGING (unchanged)
+    // HOOK LOGGING (optional, minimal)
     // -------------------------------------------------------------------------
     public void LogHookExecution(string hookId, bool fired, string reasonIfBlocked, string context = null)
     {
@@ -168,23 +132,19 @@ public class TelemetryLogger : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
-    // CSV EXPORT (still writes frustration/satisfaction deltas)
+    // CSV EXPORT
     // -------------------------------------------------------------------------
     private void ExportEmotionalStateCSV(PackPullLog ev)
     {
         string csvPath = Path.Combine(csvDirPath, "PHASE_1_EMOTIONAL_STATE_LOG.csv");
 
-        // header if needed
         if (!File.Exists(csvPath))
         {
             string header = "log_id,timestamp,session_id,player_id,event_type,frustration_after,satisfaction_after,frustration_delta,satisfaction_delta";
             File.WriteAllText(csvPath, header + "\n");
         }
 
-        // after-values
         var (frAfter, saAfter) = EmotionalStateManager.Instance?.Snapshot() ?? (0f, 0f);
-
-        // deltas
         float frDelta = EmotionalStateManager.Instance?.GetLastFrustrationDelta() ?? 0f;
         float saDelta = EmotionalStateManager.Instance?.GetLastSatisfactionDelta() ?? 0f;
 
@@ -205,17 +165,18 @@ public class TelemetryLogger : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
-    // FILE SAVE / RETRIEVAL
+    // FILE HANDLING
     // -------------------------------------------------------------------------
     private void SaveFile()
     {
         try
         {
-            var json = JsonConvert.SerializeObject(cached, Formatting.Indented);
+            string json = JsonConvert.SerializeObject(cached, Formatting.Indented);
+
             if ((System.Text.Encoding.UTF8.GetByteCount(json) / 1024f) > MaxFileSizeKB && cached.logs.Count > 100)
                 cached.logs.RemoveRange(0, 100);
 
-            File.WriteAllText(logFilePath, JsonConvert.SerializeObject(cached, Formatting.Indented));
+            File.WriteAllText(logFilePath, json);
         }
         catch (Exception e)
         {
@@ -242,28 +203,8 @@ public class TelemetryLogger : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
-    // SUPPORT CLASSES FOR LOG OUTPUT
+    // LOG STRUCTURE
     // -------------------------------------------------------------------------
-    [Serializable]
-    public class Phase1LoggingRoot
-    {
-        public Dictionary<string, LogDefinition> phase_1_logging;
-        public List<LogDefinition> phase_1_log_definitions;
-    }
-
-    [Serializable]
-    public class LogDefinition
-    {
-        public string csv_name;
-        public List<string> columns;
-    }
-
-    [Serializable]
-    public class PullResult
-    {
-        public string rarity;
-    }
-
     [Serializable]
     public class PackPullLog
     {
@@ -277,13 +218,9 @@ public class TelemetryLogger : MonoBehaviour
         public string pack_name;
         public int cost_coins;
 
-        public bool pity_triggered;
-        public string pity_type;
-
-        public List<PullResult> pull_results;
+        public List<string> pull_results; // ✅ simplified to flat rarity list
 
         public float satisfaction_after;
         public float frustration_after;
-        public float cumulative_score;
     }
 }

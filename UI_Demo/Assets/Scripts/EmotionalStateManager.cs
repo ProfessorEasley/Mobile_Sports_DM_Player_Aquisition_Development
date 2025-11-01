@@ -91,10 +91,8 @@ public class EmotionalStateManager : MonoBehaviour
     /// </summary>
     /// <param name="packTypeKey">e.g., 'bronze_pack', 'silver_pack', 'gold_pack'</param>
     /// <param name="rarities">List of rarity strings for the 3 pulls</param>
-    /// <param name="pityTriggered">unused (kept for compatibility)</param>
-    /// <param name="pityType">unused (kept for compatibility)</param>
     /// <returns>EmotionDeltaResult with applied deltas</returns>
-    public EmotionDeltaResult ApplyPackOutcome(string packTypeKey, List<string> rarities, bool pityTriggered = false, string pityType = null)
+    public EmotionDeltaResult ApplyPackOutcome(string packTypeKey, List<string> rarities)
     {
         // 1) Compute raw score from rarities
         int rawScore = 0;
@@ -133,7 +131,7 @@ public class EmotionalStateManager : MonoBehaviour
         _lastRareBoostApplied = false;
 
         if (verbose)
-            Debug.Log($"[Emotion] pack={packTypeKey} raw={rawScore} bounds=[{b.min},{b.max}] q={quality01:F3}  ΔS={_lastSatisfactionDelta:F2}  ΔF={_lastFrustrationDelta:F2}  → S={satisfaction:F1} F={frustration:F1}");
+            Debug.Log($"[Emotion] pack={packTypeKey} | bounds=[{b.min},{b.max}] | raw={rawScore} | q={quality01:F3} | S={satisfaction:F1} | F={frustration:F1}");
 
         return new EmotionDeltaResult { satisfaction = _lastSatisfactionDelta, frustration = _lastFrustrationDelta };
     }
@@ -142,8 +140,8 @@ public class EmotionalStateManager : MonoBehaviour
     /// Back-compat wrapper in case any code still calls the old method.
     /// Uses a best-effort pack key guess (defaults to bronze bounds if unknown).
     /// </summary>
-    [Obsolete("Use ApplyPackOutcome(packTypeKey, rarities, pityTriggered, pityType) instead.")]
-    public EmotionDeltaResult HandleOutcomeEvent(List<string> rarities, bool pityTriggered, string pityType)
+    [Obsolete("Use ApplyPackOutcome(packTypeKey, rarities) instead.")]
+    public EmotionDeltaResult HandleOutcomeEvent(List<string> rarities)
     {
         // Fallback guess: try to read the last-used pack from PackOpeningController if available
         string packKey = "bronze_pack";
@@ -155,7 +153,7 @@ public class EmotionalStateManager : MonoBehaviour
         }
         catch { /* ignore */ }
 
-        return ApplyPackOutcome(packKey, rarities, pityTriggered, pityType);
+        return ApplyPackOutcome(packKey, rarities);
     }
 
     // ------------------------------------------------------------------------

@@ -63,13 +63,13 @@ public class PackOpeningController : MonoBehaviour
             return;
         }
 
-        var rarities = mgr.PullCardRarities(packType, out bool pityTriggered, out string pityType);
-        Debug.Log($"[PackOpening] {packType} → {rarities.Count} cards | pity={pityTriggered}:{pityType ?? "-"}");
+        var rarities = mgr.PullCardRarities(packType);
+        Debug.Log($"[PackOpening] {packType} → {rarities.Count} cards");
 
         BuildOrReuseCards(rarities.Count);
 
         // Emotion + hooks
-        EmotionalStateManager.Instance?.ApplyPackOutcome(packType, rarities, pityTriggered, pityType);
+        EmotionalStateManager.Instance?.ApplyPackOutcome(packType, rarities);
         HookOrchestrator.Instance?.TryTriggerOutcomeHooks(rarities);
 
         // Telemetry (simplified)
@@ -78,9 +78,7 @@ public class PackOpeningController : MonoBehaviour
             packType,
             packData.name,  // replaced pack_id
             packData.cost,
-            rarities,
-            pityTriggered,
-            pityType
+            rarities
         );
 
         // Visuals

@@ -108,14 +108,14 @@ public class DropHistoryController : MonoBehaviour
             var log = logs[i];
             var raritiesLine = new StringBuilder();
 
-            foreach (var res in log.pull_results)
+            foreach (var rarityRaw in log.pull_results)
             {
+                string rarity = (rarityRaw ?? "common").ToLowerInvariant();
+
                 var entry = Instantiate(resultTemplate, contentParent);
                 entry.SetActive(true);
 
                 var tmp = entry.GetComponentInChildren<TextMeshProUGUI>();
-                string rarity = (res.rarity ?? "common").ToLowerInvariant();
-
                 tmp.text = $"{rarity.ToUpper()} CARD";
                 tmp.color = GetColorForRarity(rarity);
                 cardCount++;
@@ -124,15 +124,15 @@ public class DropHistoryController : MonoBehaviour
                 raritiesLine.Append(rarity);
             }
 
+
             var emoEntry = Instantiate(resultTemplate, contentParent);
             emoEntry.SetActive(true);
             var emoText = emoEntry.GetComponentInChildren<TextMeshProUGUI>();
 
             float fr = log.frustration_after;
             float sa = log.satisfaction_after;
-            float cum = log.cumulative_score;
 
-            emoText.text = $"Satisfaction: {sa:F2}  |  Frustration: {fr:F2}  |  Score: {cum:F2}";
+            emoText.text = $"Satisfaction: {sa:F2}  |  Frustration: {fr:F2}";
             emoText.color = Color.Lerp(Color.red, Color.green, Mathf.InverseLerp(0f, 10f, sa));
 
             Debug.Log($"[History] Rendered pull {log.event_id} ({log.pack_type}) → [{raritiesLine}] | S={sa:F1} F={fr:F1}");
