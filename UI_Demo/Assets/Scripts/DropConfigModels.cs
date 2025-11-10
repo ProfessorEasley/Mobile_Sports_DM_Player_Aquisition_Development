@@ -4,8 +4,7 @@ using System.Collections.Generic;
 namespace CCAS.Config
 {
     /// <summary>
-    /// Matches phase1_simplified_config.json
-    /// This is the ONLY data shape we care about in Phase 1 runtime.
+    /// Matches phase1_simplified_config.json (+ optional Phase 1 Part 2 emotion_dynamics)
     /// </summary>
     [Serializable]
     public class Phase1ConfigRoot
@@ -15,6 +14,9 @@ namespace CCAS.Config
         public Phase1Configuration phase_1_configuration;
         public Dictionary<string, RarityValue> rarity_values;
         public Dictionary<string, PackType> pack_types;
+
+        // NEW (optional): Phase 1 – Part 2 tuning block
+        public EmotionDynamics emotion_dynamics;
     }
 
     [Serializable]
@@ -52,7 +54,6 @@ namespace CCAS.Config
     [Serializable]
     public class DropRates
     {
-        // any rarity not present in JSON will just default to 0f
         public float common;
         public float uncommon;
         public float rare;
@@ -65,5 +66,56 @@ namespace CCAS.Config
     {
         public int min_score;
         public int max_score;
+    }
+
+    // -------------------- NEW: Phase 1 – Part 2 --------------------
+
+    [Serializable]
+    public class EmotionDynamics
+    {
+        public QualityReset quality_reset;  // great/bad pulls actively cool opposite emotion
+        public NeutralBand neutral_band;    // average pulls calm both emotions
+        public Oppositional oppositional;   // cross-trim factor
+        public Streak streak;               // rolling average multiplier (N = 5..10)
+        public Caps caps;                   // clamp ranges for meters
+    }
+
+    [Serializable]
+    public class QualityReset
+    {
+        public float good_threshold = 0.60f;
+        public float bad_threshold = 0.40f;
+        public float R_S = 2.0f; // satisfaction reduction constant
+        public float R_F = 2.0f; // frustration reduction constant
+    }
+
+    [Serializable]
+    public class NeutralBand
+    {
+        public float min = 0.45f;
+        public float max = 0.55f;
+        public float recovery = 0.8f; // reduce both S and F by this amount
+    }
+
+    [Serializable]
+    public class Oppositional
+    {
+        public float k = 0.25f; // cross-reduction factor
+    }
+
+    [Serializable]
+    public class Streak
+    {
+        public int window = 5;      // N previous pulls
+        public float alpha = 1.0f;  // scales S delta by (1 + alpha*streak)
+        public float beta = 1.0f;   // scales F delta by (1 - beta*streak)
+        public float threshold = 0.10f; // optional UI label cutoff
+    }
+
+    [Serializable]
+    public class Caps
+    {
+        public float S_cap = 100f;
+        public float F_cap = 100;
     }
 }

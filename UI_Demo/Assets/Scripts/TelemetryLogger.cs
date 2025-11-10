@@ -218,7 +218,7 @@ public class TelemetryLogger : MonoBehaviour
         public string pack_name;
         public int cost_coins;
 
-        public List<string> pull_results; // ✅ simplified to flat rarity list
+        public List<string> pull_results; 
 
         public float satisfaction_after;
         public float frustration_after;
