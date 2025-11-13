@@ -1,20 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using CCAS.Config;
 
 /// <summary>
-/// Phase 1 (Simplified) Emotional State Manager
-/// Implements normalized pack-quality → emotion deltas:
-///   - quality01 = (rawScore - minScore[pack]) / (maxScore[pack] - minScore[pack])
-///   - ΔSatisfaction = quality01 * S_max
-///   - ΔFrustration  = (1 - quality01) * F_max
-///
-/// Notes:
-/// - Emotion meters are 0–100
-/// - No EF / streak / decay logic; intentionally removed for clarity
-/// - Rarity values and pack bounds are hardcoded for Phase 1
-/// - Exposes S_max / F_max in Inspector for quick tuning
-/// - Provides last-delta getters for TelemetryLogger CSV
+/// Phase 1 – Part 2 Emotional State Manager (Balanced Edition)
+/// Implements: Base normalized quality → (Quality-Reset) → (Neutral Band) → (Oppositional) → (Streak) → Clamp
+/// JSON tuning supported through emotion_dynamics.
 /// </summary>
 public class EmotionalStateManager : MonoBehaviour
 {
@@ -24,11 +17,11 @@ public class EmotionalStateManager : MonoBehaviour
     [Range(0, 100)] public float frustration;
     [Range(0, 100)] public float satisfaction;
 
-    [Header("Emotion Formula Settings")]
+    [Header("Fallback Formula Settings (used if JSON missing)")]
     [Tooltip("Satisfaction gain at quality01 = 1.0")]
-    public float S_max = 3f;
+    public float S_max_Fallback = 3f;
     [Tooltip("Frustration gain at quality01 = 0.0")]
-    public float F_max = 3f;
+    public float F_max_Fallback = 3f;
 
     [Header("Debug")]
     public bool verbose = true;
@@ -36,29 +29,15 @@ public class EmotionalStateManager : MonoBehaviour
     // --- Logging variables for Telemetry ---
     private float _lastFrustrationDelta;
     private float _lastSatisfactionDelta;
-    private string _lastHookTriggered = "none"; // kept for CSV compatibility
-    private int _lastStreakLength = 0;          // not used in simplified model
-    private bool _lastRareBoostApplied = false; // not used in simplified model
+    private string _lastHookTriggered = "none";
+    private int _lastStreakLength = 0;
+    private bool _lastRareBoostApplied = false;
 
-    // --- Hardcoded rarity values (Phase 1) ---
-    // Common=1, Uncommon=2, Rare=3, Epic=4, Legendary=5
-    private readonly Dictionary<string, int> _rarityValue = new(StringComparer.OrdinalIgnoreCase)
-    {
-        { "common", 1 },
-        { "uncommon", 2 },
-        { "rare", 3 },
-        { "epic", 4 },
-        { "legendary", 5 }
-    };
+    // Rolling window of last N quality01 values (previous pulls only)
+    private readonly Queue<float> _qualityWindow = new();
 
-    // --- Hardcoded per-pack score bounds (from Phase 1 spec) ---
-    // Bronze: min 3 (1+1+1), max 7 (2+2+3)
-    // Silver: min 6 (2+2+2), max 12 (3+4+5)
-    // Gold:   min 9 (3+3+3), max 13 (4+4+5)
-    private struct Bounds { public int min; public int max; public Bounds(int mi, int ma){ min=mi; max=ma; } }
-    private readonly Bounds _bronzeBounds = new(3, 7);
-    private readonly Bounds _silverBounds = new(6, 12);
-    private readonly Bounds _goldBounds   = new(9, 13);
+    // Quick accessors for config
+    private Phase1ConfigRoot Cfg => DropConfigManager.Instance?.config;
 
     void Awake()
     {
@@ -68,9 +47,7 @@ public class EmotionalStateManager : MonoBehaviour
         ResetSession();
     }
 
-    /// <summary>
-    /// Reset both meters to 0.
-    /// </summary>
+    /// <summary>Reset both meters to 0 and clear streak window.</summary>
     public void ResetSession()
     {
         frustration = 0f;
@@ -80,103 +57,244 @@ public class EmotionalStateManager : MonoBehaviour
         _lastHookTriggered = "none";
         _lastStreakLength = 0;
         _lastRareBoostApplied = false;
+        _qualityWindow.Clear();
     }
 
     // ------------------------------------------------------------------------
-    // PUBLIC API
+    // MAIN UPDATE
     // ------------------------------------------------------------------------
-
-    /// <summary>
-    /// Apply the normalized emotion update for a pack outcome.
-    /// </summary>
-    /// <param name="packTypeKey">e.g., 'bronze_pack', 'silver_pack', 'gold_pack'</param>
-    /// <param name="rarities">List of rarity strings for the 3 pulls</param>
-    /// <returns>EmotionDeltaResult with applied deltas</returns>
     public EmotionDeltaResult ApplyPackOutcome(string packTypeKey, List<string> rarities)
     {
-        // 1) Compute raw score from rarities
+        if (rarities == null) rarities = new List<string>();
+
+        // 1) Raw score from rarities
         int rawScore = 0;
-        if (rarities != null)
+        foreach (var r in rarities)
+            rawScore += GetRarityNumericValue(string.IsNullOrEmpty(r) ? "common" : r.ToLowerInvariant());
+
+        // 2) Get pack score range
+        var (minScore, maxScore) = GetPackScoreRange(packTypeKey);
+
+        // 3) Normalize to [0,1]
+        float denom = Mathf.Max(1, maxScore - minScore);
+        float rawQuality = (rawScore - minScore) / denom;
+        float quality01 = AdjustQualityForPack(packTypeKey, rawQuality);
+
+
+        // 4) Base deltas - SIMPLIFIED: Direct quality mapping
+        // This ensures satisfaction can build and frustration is proportional
+        var (Smax, Fmax) = GetMaxes();
+        
+        // Use asymmetric curves: satisfaction builds faster, frustration builds slower
+        float satisfactionCurve = Mathf.Pow(quality01, 0.7f);  // Slightly easier to gain satisfaction
+        float frustrationCurve = Mathf.Pow(1f - quality01, 1.2f);  // Harder to gain frustration
+        
+        float dS = satisfactionCurve * Smax;
+        float dF = frustrationCurve * Fmax;
+
+        // --------------------------------------------------------------------
+        // 5) Rare Card Boost - Make rare cards feel rewarding
+        // --------------------------------------------------------------------
+        bool hasRareOrBetter = rarities.Any(r => 
+            !string.IsNullOrEmpty(r) && 
+            (r.ToLowerInvariant() == "rare" || 
+             r.ToLowerInvariant() == "epic" || 
+             r.ToLowerInvariant() == "legendary"));
+        
+        if (hasRareOrBetter)
         {
-            foreach (var r in rarities)
+            float rareBoost = 1.5f;  // 50% boost to satisfaction for rare+ cards
+            dS *= rareBoost;
+            _lastRareBoostApplied = true;
+        }
+        else
+        {
+            _lastRareBoostApplied = false;
+        }
+
+        // --------------------------------------------------------------------
+        // 6) Quality-Driven Reduction (Fixed Logic)
+        // --------------------------------------------------------------------
+        var qr = Cfg?.emotion_dynamics?.quality_reset;
+        if (qr != null)
+        {
+            // Good pulls: reduce frustration (this is the main recovery mechanism)
+            if (quality01 > qr.good_threshold)
             {
-                string key = string.IsNullOrEmpty(r) ? "common" : r.ToLowerInvariant();
-                rawScore += _rarityValue.TryGetValue(key, out var v) ? v : 1;
+                // Reduce frustration proportionally to quality
+                float reduceAmount = (quality01 - qr.good_threshold) / (1f - qr.good_threshold);
+                float reduce = reduceAmount * qr.R_F;
+                dF = Mathf.Max(0f, dF - reduce);  // Can't go negative, just reduce frustration gain
+            }
+            // Bad pulls: Don't penalize satisfaction further - it's already low
+            // Just reduce frustration gain slightly (less punishment for bad pulls)
+            else if (quality01 < qr.bad_threshold)
+            {
+                // Reduce frustration gain for very bad pulls (less punishment)
+                float badness = (qr.bad_threshold - quality01) / qr.bad_threshold;
+                dF *= (1f - badness * 0.3f);  // Reduce frustration by up to 30% for worst pulls
             }
         }
 
-        // 2) Get pack bounds
-        var b = GetBoundsForPack(packTypeKey);
+        // --------------------------------------------------------------------
+        // 7) Neutral-Band Recovery (both cool down slightly)
+        // --------------------------------------------------------------------
+        var nb = Cfg?.emotion_dynamics?.neutral_band;
+        if (nb != null && quality01 >= nb.min && quality01 <= nb.max)
+        {
+            dS *= 0.85f;  // Slightly more reduction for neutral pulls
+            dF *= 0.85f;
+        }
 
-        // 3) Normalize to 0..1
-        float denom = Mathf.Max(1, b.max - b.min);
-        float quality01 = Mathf.Clamp01((rawScore - b.min) / denom);
+        // --------------------------------------------------------------------
+        // 8) Oppositional Dampening - REDUCED IMPACT
+        // --------------------------------------------------------------------
+        var opp = Cfg?.emotion_dynamics?.oppositional;
+        float k = (opp?.k ?? 0.25f) * 0.3f;  // Reduce impact by 70% - was too strong
+        float dS_opp = dS - (dF * k);
+        float dF_opp = dF - (dS * k);
 
-        // 4) Convert to emotion deltas
-        float dSat = quality01 * S_max;
-        float dFr  = (1f - quality01) * F_max;
+        // --------------------------------------------------------------------
+        // 9) Streak Multiplier - BALANCED
+        // --------------------------------------------------------------------
+        float dS_final = dS_opp;
+        float dF_final = dF_opp;
+        var st = Cfg?.emotion_dynamics?.streak;
+        if (st != null && st.window > 0)
+        {
+            float qAvg = _qualityWindow.Count > 0 ? _qualityWindow.Average() : 0.5f;
+            float streak = qAvg - 0.5f; // +ve = hot, -ve = cold
+            
+            if (Mathf.Abs(streak) > st.threshold)
+            {
+                // Reduce streak multipliers - was too aggressive
+                float alphaReduced = st.alpha * 0.5f;  // Half strength
+                float betaReduced = st.beta * 0.5f;
+                
+                // Only amplify positive streaks (hot streaks), don't amplify cold streaks as much
+                if (streak > 0)
+                {
+                    dS_final *= (1f + alphaReduced * streak);
+                    dF_final *= (1f - betaReduced * streak * 0.5f);  // Less frustration reduction
+                }
+                else
+                {
+                    // Cold streaks: less punishment
+                    dS_final *= (1f + alphaReduced * streak * 0.5f);  // Less satisfaction loss
+                    dF_final *= (1f - betaReduced * streak * 0.7f);  // Less frustration gain
+                }
+            }
+            _lastStreakLength = Mathf.Min(_qualityWindow.Count, st.window);
+        }
+        else
+        {
+            _lastStreakLength = _qualityWindow.Count;
+        }
 
-        // 5) Apply and clamp to 0..100
+        // --------------------------------------------------------------------
+        // 10) Apply Decay FIRST, then add deltas (allows satisfaction to build)
+        // --------------------------------------------------------------------
+        var caps = Cfg?.emotion_dynamics?.caps;
+        float S_cap = caps?.S_cap ?? 100f;
+        float F_cap = caps?.F_cap ?? 100f;
+
         float prevS = satisfaction;
         float prevF = frustration;
 
-        satisfaction = Mathf.Clamp(satisfaction + dSat, 0f, 100f);
-        frustration  = Mathf.Clamp(frustration + dFr,  0f, 100f);
+        // Apply decay BEFORE adding deltas - this allows satisfaction to accumulate
+        satisfaction *= 0.98f;   // 2% decay per pull (was 0.5%, now more balanced)
+        frustration  *= 0.97f;    // 3% decay per pull (was 1.5%, now more balanced)
 
-        // 6) Record deltas for logging/CSV
+        // Now add deltas
+        satisfaction = Mathf.Clamp(satisfaction + dS_final, 0f, S_cap);
+        frustration  = Mathf.Clamp(frustration  + dF_final, 0f, F_cap);
+
         _lastSatisfactionDelta = satisfaction - prevS;
-        _lastFrustrationDelta  = frustration  - prevF;
-        _lastHookTriggered = "none";
-        _lastStreakLength = 0;
-        _lastRareBoostApplied = false;
+        _lastFrustrationDelta = frustration - prevF;
+
+        // --------------------------------------------------------------------
+        // 11) Update rolling window
+        // --------------------------------------------------------------------
+        int targetN = st?.window ?? 5;
+        EnqueueQuality(quality01, targetN);
 
         if (verbose)
-            Debug.Log($"[Emotion] pack={packTypeKey} | bounds=[{b.min},{b.max}] | raw={rawScore} | q={quality01:F3} | S={satisfaction:F1} | F={frustration:F1}");
+        {
+            Debug.Log($"[Emotion] pack={packTypeKey} raw={rawScore} bounds=[{minScore},{maxScore}] " +
+                      $"q={quality01:F2} dS={dS_final:F2} dF={dF_final:F2} → S={satisfaction:F2} F={frustration:F2} (N={_qualityWindow.Count})");
+        }
 
         return new EmotionDeltaResult { satisfaction = _lastSatisfactionDelta, frustration = _lastFrustrationDelta };
     }
 
-    /// <summary>
-    /// Back-compat wrapper in case any code still calls the old method.
-    /// Uses a best-effort pack key guess (defaults to bronze bounds if unknown).
-    /// </summary>
-    [Obsolete("Use ApplyPackOutcome(packTypeKey, rarities) instead.")]
-    public EmotionDeltaResult HandleOutcomeEvent(List<string> rarities)
+    // ------------------------------------------------------------------------
+    // HELPERS
+    // ------------------------------------------------------------------------
+    private float AdjustQualityForPack(string packTypeKey, float rawQuality)
     {
-        // Fallback guess: try to read the last-used pack from PackOpeningController if available
-        string packKey = "bronze_pack";
-        try
-        {
-            var opener = FindObjectOfType<PackOpeningController>();
-            if (opener != null && !string.IsNullOrEmpty(opener.packType))
-                packKey = opener.packType;
-        }
-        catch { /* ignore */ }
+        float q = Mathf.Clamp01(rawQuality);
+        string k = (packTypeKey ?? "").ToLowerInvariant();
 
-        return ApplyPackOutcome(packKey, rarities);
+        // Bias curves by pack type
+        if (k.Contains("bronze"))
+            q = Mathf.Pow(q, 0.8f);   // optimistic bias (slightly inflates)
+        else if (k.Contains("silver"))
+            q = Mathf.Pow(q, 1.0f);   // neutral
+        else if (k.Contains("gold"))
+            q = Mathf.Pow(q, 1.2f);   // stricter (needs better pull to feel "good")
+
+        return Mathf.Clamp01(q);
     }
 
-    // ------------------------------------------------------------------------
-    // INTERNAL HELPERS
-    // ------------------------------------------------------------------------
-    private Bounds GetBoundsForPack(string packTypeKey)
+    private (float Smax, float Fmax) GetMaxes()
     {
+        var p = Cfg?.phase_1_configuration?.emotion_parameters;
+        float s = p?.S_max ?? S_max_Fallback;
+        float f = p?.F_max ?? F_max_Fallback;
+        return (s, f);
+    }
+
+    private int GetRarityNumericValue(string rarity)
+    {
+        var rv = Cfg?.rarity_values;
+        if (rv != null && rv.TryGetValue(rarity, out var val) && val != null)
+            return Mathf.Max(1, val.numeric_value);
+
+        return rarity switch
+        {
+            "uncommon"  => 2,
+            "rare"      => 3,
+            "epic"      => 4,
+            "legendary" => 5,
+            _           => 1
+        };
+    }
+
+    private (int min, int max) GetPackScoreRange(string packTypeKey)
+    {
+        var packs = Cfg?.pack_types;
+        if (!string.IsNullOrEmpty(packTypeKey) && packs != null &&
+            packs.TryGetValue(packTypeKey, out var p) && p?.score_range != null)
+            return (p.score_range.min_score, p.score_range.max_score);
+
         string k = (packTypeKey ?? string.Empty).ToLowerInvariant();
+        if (k.Contains("bronze")) return (3, 7);
+        if (k.Contains("silver")) return (6, 12);
+        if (k.Contains("gold"))   return (9, 13);
+        return (6, 12);
+    }
 
-        // Flexible string-matching so we don't depend on exact keys
-        if (k.Contains("bronze")) return _bronzeBounds;
-        if (k.Contains("silver")) return _silverBounds;
-        if (k.Contains("gold"))   return _goldBounds;
-
-        // If keys don't include names, try reading current config pack name (optional)
-        // Otherwise, default to Silver as a middle ground
-        return _silverBounds;
+    private void EnqueueQuality(float quality01, int maxN)
+    {
+        _qualityWindow.Enqueue(Mathf.Clamp01(quality01));
+        while (_qualityWindow.Count > Mathf.Max(1, maxN))
+            _qualityWindow.Dequeue();
     }
 
     // Snapshot for UI
     public (float fr, float sa) Snapshot() => (frustration, satisfaction);
 
-    // Telemetry getters (CSV export depends on these)
+    // Telemetry getters
     public float GetLastFrustrationDelta() => _lastFrustrationDelta;
     public float GetLastSatisfactionDelta() => _lastSatisfactionDelta;
     public string GetLastHookTriggered() => _lastHookTriggered;

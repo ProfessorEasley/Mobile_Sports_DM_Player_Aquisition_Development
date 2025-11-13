@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 using CCAS.Config;
 
 /// <summary>
-/// Loads phase1_simplified_config.json from StreamingAssets
+/// Loads phase1_simplified_config_part2.json from StreamingAssets
 /// and handles randomized card pulls.
 /// </summary>
 public class DropConfigManager : MonoBehaviour
@@ -14,7 +14,7 @@ public class DropConfigManager : MonoBehaviour
     public static DropConfigManager Instance;
 
     [Header("Runtime Config (Loaded JSON)")]
-    public Phase1ConfigRoot config;   // maps directly to phase1_simplified_config.json
+    public Phase1ConfigRoot config;   // maps directly to json
 
     void Awake()
     {
@@ -25,11 +25,11 @@ public class DropConfigManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Loads phase1_simplified_config.json from StreamingAssets.
+    /// Loads phase1_simplified_config_part2.json from StreamingAssets.
     /// </summary>
     void LoadConfig()
     {
-        string path = Path.Combine(Application.streamingAssetsPath, "phase1_simplified_config.json");
+        string path = Path.Combine(Application.streamingAssetsPath, "phase1_simplified_config_part2.json");
 
         if (!File.Exists(path))
         {
@@ -51,11 +51,11 @@ public class DropConfigManager : MonoBehaviour
 
             if (config?.pack_types != null && config.rarity_values != null)
             {
-                Debug.Log($"[DropConfig] ✅ Loaded {config.pack_types.Count} pack types and {config.rarity_values.Count} rarity tiers from phase1_simplified_config.json");
+                Debug.Log($"[DropConfig] ✅ Loaded {config.pack_types.Count} pack types and {config.rarity_values.Count} rarity tiers from phase1_simplified_config_part2.json");
             }
             else
             {
-                Debug.LogError("[DropConfig] ❌ Missing pack_types or rarity_values in phase1_simplified_config.json");
+                Debug.LogError("[DropConfig] ❌ Missing pack_types or rarity_values in phase1_simplified_config_part2.json");
             }
         }
         catch (Exception e)
