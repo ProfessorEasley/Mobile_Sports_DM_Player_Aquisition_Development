@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using Newtonsoft.Json;
 
@@ -74,6 +75,82 @@ public class TelemetryLogger : MonoBehaviour
     // -------------------------------------------------------------------------
     // MAIN LOGGING API
     // -------------------------------------------------------------------------
+    /// <summary>
+    /// Logs a pack pull with Card objects (includes full card data).
+    /// </summary>
+    public void LogPull(string packTypeKey, string packName, int packCostCoins, List<Card> cards)
+    {
+        try
+        {
+            if (cards == null) cards = new();
+
+            var ev = new PackPullLog
+            {
+                event_id = $"pull_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}".Substring(0, 30),
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                session_id = PlayerPrefs.GetString("session_id", $"session_{SystemInfo.deviceUniqueIdentifier}_{DateTime.UtcNow:yyyyMMdd}"),
+                player_id = PlayerPrefs.GetString("player_id", SystemInfo.deviceUniqueIdentifier),
+                player_level = PlayerPrefs.GetInt("player_level", 1),
+                pack_type = packTypeKey,
+                pack_name = packName,
+                cost_coins = packCostCoins
+            };
+
+            // Store card data
+            ev.pulled_cards = new List<CardData>();
+            ev.pull_results = new List<string>(); // Keep for backward compatibility
+            
+            foreach (var card in cards)
+            {
+                if (card != null)
+                {
+                    string rarity = card.GetRarityString();
+                    ev.pulled_cards.Add(new CardData
+                    {
+                        uid = card.uid ?? "",
+                        name = card.name ?? "",
+                        team = card.team ?? "",
+                        element = card.element ?? "",
+                        rarity = rarity,
+                        position5 = card.position5 ?? ""
+                    });
+                    ev.pull_results.Add(rarity); // Backward compatibility
+                }
+            }
+
+            // Emotional snapshot (after pull)
+            if (EmotionalStateManager.Instance != null)
+            {
+                var (fr, sa) = EmotionalStateManager.Instance.Snapshot();
+                ev.satisfaction_after = sa;
+                ev.frustration_after = fr;
+            }
+
+            // Save to cache
+            cached.logs.Add(ev);
+            if (cached.logs.Count > MaxLogs)
+                cached.logs.RemoveRange(0, cached.logs.Count - MaxLogs);
+
+            SaveFile();
+            ExportEmotionalStateCSV(ev);
+
+            if (verboseLogging)
+            {
+                var cardNames = ev.pulled_cards.Select(c => c.name).Where(n => !string.IsNullOrEmpty(n));
+                Debug.Log($"[Telemetry] Logged {packTypeKey} → [{string.Join(", ", cardNames)}] | logs={cached.logs.Count}");
+            }
+
+            OnPullLogged?.Invoke(ev);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Telemetry] Error during LogPull: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Legacy method for backward compatibility (rarities only).
+    /// </summary>
     public void LogPull(string packTypeKey, string packName, int packCostCoins, List<string> rarities)
     {
         try
@@ -90,7 +167,8 @@ public class TelemetryLogger : MonoBehaviour
                 pack_type = packTypeKey,
                 pack_name = packName,
                 cost_coins = packCostCoins,
-                pull_results = new List<string>(rarities)
+                pull_results = new List<string>(rarities),
+                pulled_cards = new List<CardData>() // Empty for legacy calls
             };
 
             // Emotional snapshot (after pull)
@@ -218,9 +296,21 @@ public class TelemetryLogger : MonoBehaviour
         public string pack_name;
         public int cost_coins;
 
-        public List<string> pull_results; 
+        public List<string> pull_results; // Backward compatibility - rarity strings
+        public List<CardData> pulled_cards; // Full card data
 
         public float satisfaction_after;
         public float frustration_after;
+    }
+
+    [Serializable]
+    public class CardData
+    {
+        public string uid;
+        public string name;
+        public string team;
+        public string element;
+        public string rarity;
+        public string position5;
     }
 }

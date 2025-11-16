@@ -20,6 +20,12 @@ public class DropHistoryController : MonoBehaviour
     public GameObject resultTemplate;
     public ScrollRect scrollRect;
 
+    [Header("Emotion Templates (Optional - for separate formatting)")]
+    [Tooltip("If set, creates separate entry for satisfaction. If null, uses resultTemplate.")]
+    public GameObject satisfactionTemplate;
+    [Tooltip("If set, creates separate entry for frustration. If null, uses resultTemplate.")]
+    public GameObject frustrationTemplate;
+
     [Header("Display")]
     [Range(1, 20)] public int recentPullsToShow = 3;
 
@@ -31,6 +37,12 @@ public class DropHistoryController : MonoBehaviour
     {
         if (resultTemplate != null && resultTemplate.activeSelf)
             resultTemplate.SetActive(false);
+        
+        if (satisfactionTemplate != null && satisfactionTemplate.activeSelf)
+            satisfactionTemplate.SetActive(false);
+        
+        if (frustrationTemplate != null && frustrationTemplate.activeSelf)
+            frustrationTemplate.SetActive(false);
     }
 
     void Start()
@@ -86,7 +98,7 @@ public class DropHistoryController : MonoBehaviour
         for (int i = contentParent.childCount - 1; i >= 0; i--)
         {
             var child = contentParent.GetChild(i).gameObject;
-            if (child == resultTemplate) continue;
+            if (child == resultTemplate || child == satisfactionTemplate || child == frustrationTemplate) continue;
             Destroy(child);
         }
 
@@ -106,36 +118,75 @@ public class DropHistoryController : MonoBehaviour
         for (int i = logs.Count - 1; i >= 0; i--)
         {
             var log = logs[i];
-            var raritiesLine = new StringBuilder();
+            var cardNamesLine = new StringBuilder();
 
-            foreach (var rarityRaw in log.pull_results)
+            // Display cards - prefer card names from pulled_cards, fallback to rarity
+            if (log.pulled_cards != null && log.pulled_cards.Count > 0)
             {
-                string rarity = (rarityRaw ?? "common").ToLowerInvariant();
+                foreach (var cardData in log.pulled_cards)
+                {
+                    if (cardData == null) continue;
 
-                var entry = Instantiate(resultTemplate, contentParent);
-                entry.SetActive(true);
+                    var entry = Instantiate(resultTemplate, contentParent);
+                    entry.SetActive(true);
 
-                var tmp = entry.GetComponentInChildren<TextMeshProUGUI>();
-                tmp.text = $"{rarity.ToUpper()} CARD";
-                tmp.color = GetColorForRarity(rarity);
-                cardCount++;
+                    var tmp = entry.GetComponentInChildren<TextMeshProUGUI>();
+                    string cardName = !string.IsNullOrEmpty(cardData.name) ? cardData.name : "Unknown Card";
+                    string rarity = !string.IsNullOrEmpty(cardData.rarity) ? cardData.rarity.ToLowerInvariant() : "common";
 
-                if (raritiesLine.Length > 0) raritiesLine.Append(", ");
-                raritiesLine.Append(rarity);
+                    tmp.text = cardName;
+                    tmp.color = GetColorForRarity(rarity);
+                    cardCount++;
+
+                    if (cardNamesLine.Length > 0) cardNamesLine.Append(", ");
+                    cardNamesLine.Append(cardName);
+                }
+            }
+            else
+            {
+                // Fallback to rarity display if card data not available
+                foreach (var rarityRaw in log.pull_results ?? new List<string>())
+                {
+                    string rarity = (rarityRaw ?? "common").ToLowerInvariant();
+
+                    var entry = Instantiate(resultTemplate, contentParent);
+                    entry.SetActive(true);
+
+                    var tmp = entry.GetComponentInChildren<TextMeshProUGUI>();
+                    tmp.text = $"{rarity.ToUpper()} CARD";
+                    tmp.color = GetColorForRarity(rarity);
+                    cardCount++;
+
+                    if (cardNamesLine.Length > 0) cardNamesLine.Append(", ");
+                    cardNamesLine.Append(rarity);
+                }
             }
 
-
-            var emoEntry = Instantiate(resultTemplate, contentParent);
-            emoEntry.SetActive(true);
-            var emoText = emoEntry.GetComponentInChildren<TextMeshProUGUI>();
-
+            // Display emotional state - create separate entries for satisfaction and frustration
             float fr = log.frustration_after;
             float sa = log.satisfaction_after;
 
-            emoText.text = $"Satisfaction: {sa:F2}  |  Frustration: {fr:F2}";
-            emoText.color = Color.Lerp(Color.red, Color.green, Mathf.InverseLerp(0f, 10f, sa));
+            // Satisfaction entry
+            GameObject satTemplate = satisfactionTemplate != null ? satisfactionTemplate : resultTemplate;
+            var satEntry = Instantiate(satTemplate, contentParent);
+            satEntry.SetActive(true);
+            var satText = satEntry.GetComponentInChildren<TextMeshProUGUI>();
+            if (satText != null)
+            {
+                satText.text = $"Satisfaction: {sa:F2}";
+            }
 
-            Debug.Log($"[History] Rendered pull {log.event_id} ({log.pack_type}) → [{raritiesLine}] | S={sa:F1} F={fr:F1}");
+            // Frustration entry
+            GameObject frusTemplate = frustrationTemplate != null ? frustrationTemplate : resultTemplate;
+            var frusEntry = Instantiate(frusTemplate, contentParent);
+            frusEntry.SetActive(true);
+            var frusText = frusEntry.GetComponentInChildren<TextMeshProUGUI>();
+            if (frusText != null)
+            {
+                frusText.text = $"Frustration: {fr:F2}";
+            }
+
+            Debug.Log($"[History] Rendered pull {log.event_id} ({log.pack_type}) → [{cardNamesLine}] | S={sa:F1} F={fr:F1}");
         }
 
         yield return null;
@@ -150,8 +201,8 @@ public class DropHistoryController : MonoBehaviour
 
     Color GetColorForRarity(string rarity) => rarity switch
     {
-        "common" => new Color32(150, 150, 150, 255),
-        "uncommon" => new Color32(46, 204, 113, 255),
+        "common" => new Color32(110, 110, 110, 255),
+        "uncommon" => new Color32(30, 150, 85, 255),
         "rare" => new Color32(0, 112, 221, 255),
         "epic" => new Color32(163, 53, 238, 255),
         "legendary" => new Color32(255, 204, 0, 255),

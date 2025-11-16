@@ -99,13 +99,13 @@ public class PackOpeningController : MonoBehaviour
         EmotionalStateManager.Instance?.ApplyPackOutcome(packType, raritiesForHooks);
         HookOrchestrator.Instance?.TryTriggerOutcomeHooks(raritiesForHooks);
 
-        // Telemetry (simplified)
+        // Telemetry (with full card data)
         var packData = mgr.config.pack_types[packType];
         TelemetryLogger.Instance?.LogPull(
             packType,
             packData.name,  // replaced pack_id
             packData.cost,
-            raritiesForHooks
+            cards  // Pass Card objects instead of just rarities
         );
 
         // Visuals - display actual card information
@@ -186,8 +186,8 @@ public class PackOpeningController : MonoBehaviour
 
     Color GetColorForRarity(string rarity) => rarity switch
     {
-        "common" => new Color32(150, 150, 150, 255),
-        "uncommon" => new Color32(46, 204, 113, 255),
+        "common" => new Color32(110, 110, 110, 255),
+        "uncommon" => new Color32(30, 150, 85, 255),
         "rare" => new Color32(0, 112, 221, 255),
         "epic" => new Color32(163, 53, 238, 255),
         "legendary" => new Color32(255, 204, 0, 255),
