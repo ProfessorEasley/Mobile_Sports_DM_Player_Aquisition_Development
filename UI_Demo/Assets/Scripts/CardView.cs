@@ -11,7 +11,10 @@ public class CardView : MonoBehaviour
 {
     [Header("References")]
     public Image frame;            // Assign in prefab (auto-finds if null)
-    public TextMeshProUGUI label;  // Optional text label
+    public TextMeshProUGUI label;  // Optional text label (primary - will show card name)
+    public TextMeshProUGUI teamLabel;    // Optional - for team display
+    public TextMeshProUGUI elementLabel; // Optional - for element display
+    public TextMeshProUGUI positionLabel; // Optional - for position display
     public CanvasGroup cg;         // Optional (for fade-in)
 
     [Header("Animation Settings")]
@@ -45,6 +48,62 @@ public class CardView : MonoBehaviour
 
         if (label != null)
             label.text = rarity.ToUpperInvariant();
+
+        // Simple reveal fade (optional)
+        if (cg != null)
+        {
+            cg.alpha = 0f;
+            StopAllCoroutines();
+            StartCoroutine(FadeIn());
+        }
+    }
+
+    /// <summary>
+    /// Applies card data to the view, displaying Name, Team, Element, and Position5.
+    /// </summary>
+    public void Apply(Card card)
+    {
+        if (card == null)
+        {
+            Debug.LogWarning($"[CardView] Attempted to apply null card to {gameObject.name}");
+            return;
+        }
+
+        string rarity = card.GetRarityString();
+
+        // Apply rarity color to frame
+        if (frame != null)
+            frame.color = GetRarityColor(rarity);
+
+        // Display card information
+        // Primary label shows card name
+        if (label != null)
+        {
+            label.text = card.name;
+        }
+
+        // If separate labels are assigned, use them for detailed info
+        if (teamLabel != null)
+        {
+            teamLabel.text = card.team;
+        }
+
+        if (elementLabel != null)
+        {
+            elementLabel.text = card.element;
+        }
+
+        if (positionLabel != null)
+        {
+            positionLabel.text = card.position5;
+        }
+
+        // If only primary label exists, show formatted info
+        if (label != null && teamLabel == null && elementLabel == null && positionLabel == null)
+        {
+            // Format: "Name\nTeam | Element | Position"
+            label.text = $"{card.name}\n{card.team} | {card.element} | {card.position5}";
+        }
 
         // Simple reveal fade (optional)
         if (cg != null)

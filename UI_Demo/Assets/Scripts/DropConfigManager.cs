@@ -90,6 +90,48 @@ public class DropConfigManager : MonoBehaviour
         return results;
     }
 
+    /// <summary>
+    /// Simulates card pulls for a given pack type and returns a list of actual Card objects.
+    /// Uses CardCatalogLoader to select cards based on the pulled rarities.
+    /// </summary>
+    public List<Card> PullCards(string packKey)
+    {
+        var results = new List<Card>();
+
+        if (config == null || config.pack_types == null || !config.pack_types.ContainsKey(packKey))
+        {
+            Debug.LogError($"[DropConfig] Pack type not found: {packKey}");
+            return results;
+        }
+
+        var catalogLoader = CardCatalogLoader.Instance;
+        if (catalogLoader == null)
+        {
+            Debug.LogError("[DropConfig] CardCatalogLoader.Instance is null. Cannot pull cards.");
+            return results;
+        }
+
+        var pack = config.pack_types[packKey];
+        var rates = pack.drop_rates;
+        int pulls = Mathf.Max(1, pack.guaranteed_cards);
+
+        for (int i = 0; i < pulls; i++)
+        {
+            string rarity = WeightedRoll(rates);
+            Card card = catalogLoader.GetRandomCardByRarity(rarity);
+            if (card != null)
+            {
+                results.Add(card);
+            }
+            else
+            {
+                Debug.LogWarning($"[DropConfig] Failed to get card for rarity: {rarity}");
+            }
+        }
+
+        return results;
+    }
+
     // ---------- Helper Methods ----------
 
     string WeightedRoll(DropRates rates)
