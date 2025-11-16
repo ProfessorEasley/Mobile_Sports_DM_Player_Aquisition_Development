@@ -142,7 +142,7 @@ public class PackOpeningController : MonoBehaviour
     {
         string rarity = (rarityRaw ?? "common").ToLowerInvariant();
         var img = go.GetComponentInChildren<Image>(true);
-        if (img != null) img.color = GetColorForRarity(rarity);
+        if (img != null) img.color = RarityColorUtility.GetColorForRarity(rarity);
         var tmp = go.GetComponentInChildren<TextMeshProUGUI>(true);
         if (tmp != null) tmp.text = rarity.ToUpperInvariant();
     }
@@ -163,7 +163,7 @@ public class PackOpeningController : MonoBehaviour
         if (img != null)
         {
             string rarity = card.GetRarityString();
-            img.color = GetColorForRarity(rarity);
+            img.color = RarityColorUtility.GetColorForRarity(rarity);
         }
 
         // Try to use CardView component if available
@@ -184,13 +184,4 @@ public class PackOpeningController : MonoBehaviour
         }
     }
 
-    Color GetColorForRarity(string rarity) => rarity switch
-    {
-        "common" => new Color32(110, 110, 110, 255),
-        "uncommon" => new Color32(30, 150, 85, 255),
-        "rare" => new Color32(0, 112, 221, 255),
-        "epic" => new Color32(163, 53, 238, 255),
-        "legendary" => new Color32(255, 204, 0, 255),
-        _ => Color.white
-    };
 }

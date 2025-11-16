@@ -44,7 +44,7 @@ public class CardView : MonoBehaviour
 
         // Apply color and label
         if (frame != null)
-            frame.color = GetRarityColor(rarity);
+            frame.color = RarityColorUtility.GetColorForRarity(rarity);
 
         if (label != null)
             label.text = rarity.ToUpperInvariant();
@@ -73,7 +73,7 @@ public class CardView : MonoBehaviour
 
         // Apply rarity color to frame
         if (frame != null)
-            frame.color = GetRarityColor(rarity);
+            frame.color = RarityColorUtility.GetColorForRarity(rarity);
 
         // Display card information
         // Primary label shows card name
@@ -123,22 +123,6 @@ public class CardView : MonoBehaviour
             if (cg != null)
                 cg.alpha = Mathf.Lerp(0f, revealAlpha, t);
             yield return null;
-        }
-    }
-
-    /// <summary>
-    /// Returns a color for each rarity. Can later be sourced from DropConfigManager.
-    /// </summary>
-    Color GetRarityColor(string rarity)
-    {
-        switch (rarity)
-        {
-            case "common":    return new Color32(150, 150, 150, 255);
-            case "uncommon":  return new Color32(46, 204, 113, 255);
-            case "rare":      return new Color32(0, 112, 221, 255);
-            case "epic":      return new Color32(163, 53, 238, 255);
-            case "legendary": return new Color32(255, 204, 0, 255);
-            default:          return Color.white;
         }
     }
 }

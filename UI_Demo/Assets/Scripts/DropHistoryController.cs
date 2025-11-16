@@ -135,7 +135,7 @@ public class DropHistoryController : MonoBehaviour
                     string rarity = !string.IsNullOrEmpty(cardData.rarity) ? cardData.rarity.ToLowerInvariant() : "common";
 
                     tmp.text = cardName;
-                    tmp.color = GetColorForRarity(rarity);
+                    tmp.color = RarityColorUtility.GetColorForRarity(rarity);
                     cardCount++;
 
                     if (cardNamesLine.Length > 0) cardNamesLine.Append(", ");
@@ -154,7 +154,7 @@ public class DropHistoryController : MonoBehaviour
 
                     var tmp = entry.GetComponentInChildren<TextMeshProUGUI>();
                     tmp.text = $"{rarity.ToUpper()} CARD";
-                    tmp.color = GetColorForRarity(rarity);
+                    tmp.color = RarityColorUtility.GetColorForRarity(rarity);
                     cardCount++;
 
                     if (cardNamesLine.Length > 0) cardNamesLine.Append(", ");
@@ -198,14 +198,4 @@ public class DropHistoryController : MonoBehaviour
         Debug.Log($"[History] Listed {cardCount} card(s) across {logs.Count} pull(s).");
         _isPopulating = false;
     }
-
-    Color GetColorForRarity(string rarity) => rarity switch
-    {
-        "common" => new Color32(110, 110, 110, 255),
-        "uncommon" => new Color32(30, 150, 85, 255),
-        "rare" => new Color32(0, 112, 221, 255),
-        "epic" => new Color32(163, 53, 238, 255),
-        "legendary" => new Color32(255, 204, 0, 255),
-        _ => Color.white
-    };
 }
