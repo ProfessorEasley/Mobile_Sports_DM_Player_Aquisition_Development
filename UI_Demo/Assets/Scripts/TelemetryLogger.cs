@@ -84,6 +84,13 @@ public class TelemetryLogger : MonoBehaviour
         {
             if (cards == null) cards = new();
 
+            // Build per-card pull counts from existing pull_history BEFORE this pull.
+            // This acts as the player collection + history for duplicate detection.
+            var pullCounts = BuildCardPullCountsFromHistory();
+
+            int totalXpGained = 0;
+            int duplicateCount = 0;
+
             var ev = new PackPullLog
             {
                 event_id = $"pull_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}".Substring(0, 30),
@@ -105,18 +112,52 @@ public class TelemetryLogger : MonoBehaviour
                 if (card != null)
                 {
                     string rarity = card.GetRarityString();
+                    string uid = card.uid ?? string.Empty;
+                    
+                    int previousPulls = 0;
+                    if (!string.IsNullOrEmpty(uid))
+                        pullCounts.TryGetValue(uid, out previousPulls);
+
+                    // Duplicate if we've seen this card UID before (including earlier in this same pull).
+                    bool isDuplicate = !string.IsNullOrEmpty(uid) && previousPulls > 0;
+
+                    // Update counts to include this pull.
+                    if (!string.IsNullOrEmpty(uid))
+                        pullCounts[uid] = previousPulls + 1;
+
+                    int xpForThisCard = isDuplicate ? GetDuplicateXpForRarity(rarity) : 0;
+                    if (isDuplicate)
+                    {
+                        duplicateCount++;
+                        totalXpGained += xpForThisCard;
+                    }
+
                     ev.pulled_cards.Add(new CardData
                     {
-                        uid = card.uid ?? "",
+                        uid = uid,
                         name = card.name ?? "",
                         team = card.team ?? "",
                         element = card.element ?? "",
                         rarity = rarity,
-                        position5 = card.position5 ?? ""
+                        position5 = card.position5 ?? "",
+                        is_duplicate = isDuplicate,
+                        xp_gained = xpForThisCard,
+                        total_pulls_for_card = previousPulls + 1,
+                        duplicate_pulls_for_card = Mathf.Max(0, previousPulls + 1 - 1)
                     });
                     ev.pull_results.Add(rarity); // Backward compatibility
                 }
             }
+
+            // Update player's XP pool based on duplicates in this pull
+            int previousXp = PlayerPrefs.GetInt("player_xp", 0);
+            int newTotalXp = previousXp + Mathf.Max(0, totalXpGained);
+            PlayerPrefs.SetInt("player_xp", newTotalXp);
+            PlayerPrefs.Save();
+
+            ev.total_xp_gained = totalXpGained;
+            ev.duplicate_count = duplicateCount;
+            ev.player_xp_after = newTotalXp;
 
             // Emotional snapshot (after pull)
             if (EmotionalStateManager.Instance != null)
@@ -136,8 +177,16 @@ public class TelemetryLogger : MonoBehaviour
 
             if (verboseLogging)
             {
-                var cardNames = ev.pulled_cards.Select(c => c.name).Where(n => !string.IsNullOrEmpty(n));
-                Debug.Log($"[Telemetry] Logged {packTypeKey} → [{string.Join(", ", cardNames)}] | logs={cached.logs.Count}");
+                // Detailed per-card duplicate + XP info for debugging.
+                var cardInfos = ev.pulled_cards.Select(c =>
+                    $"{(string.IsNullOrEmpty(c.name) ? "Unknown Card" : c.name)} [{c.rarity}] " +
+                    $"dup={c.is_duplicate} xp={c.xp_gained} pulls={c.total_pulls_for_card} dup_pulls={c.duplicate_pulls_for_card}");
+
+                Debug.Log(
+                    $"[Telemetry] Logged {packTypeKey} → {string.Join("; ", cardInfos)} | " +
+                    $"duplicates={ev.duplicate_count} xp_gained={ev.total_xp_gained} xp_total={ev.player_xp_after} | " +
+                    $"logs={cached.logs.Count}"
+                );
             }
 
             OnPullLogged?.Invoke(ev);
@@ -262,6 +311,71 @@ public class TelemetryLogger : MonoBehaviour
         }
     }
 
+    // -------------------------------------------------------------------------
+    // DUPLICATE DETECTION HELPERS
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Builds a map of card UID → total pulls so far (from cached pull_history).
+    /// Used for both duplicate detection and per-card dupe counters.
+    /// </summary>
+    private Dictionary<string, int> BuildCardPullCountsFromHistory()
+    {
+        var dict = new Dictionary<string, int>();
+        if (cached?.logs == null) return dict;
+
+        foreach (var log in cached.logs)
+        {
+            if (log?.pulled_cards == null) continue;
+            foreach (var card in log.pulled_cards)
+            {
+                if (card == null) continue;
+                if (string.IsNullOrEmpty(card.uid)) continue;
+
+                if (!dict.TryGetValue(card.uid, out var count))
+                    dict[card.uid] = 1;
+                else
+                    dict[card.uid] = count + 1;
+            }
+        }
+        return dict;
+    }
+
+    /// <summary>
+    /// Returns XP for a duplicate card based on its rarity, using Phase 1 Part 4 tuning.
+    /// Falls back to default values if config is missing.
+    /// </summary>
+    private int GetDuplicateXpForRarity(string rarity)
+    {
+        string r = (rarity ?? "common").ToLowerInvariant();
+
+        // Try JSON-configured values first (phase1_config.json)
+        var cfg = DropConfigManager.Instance?.config;
+        var dxp = cfg?.duplicate_xp;
+
+        if (dxp != null)
+        {
+            return r switch
+            {
+                "uncommon"  => dxp.uncommon_duplicate_xp,
+                "rare"      => dxp.rare_duplicate_xp,
+                "epic"      => dxp.epic_duplicate_xp,
+                "legendary" => dxp.legendary_duplicate_xp,
+                _           => dxp.common_duplicate_xp
+            };
+        }
+
+        // Fallback to design defaults if config block is missing
+        return r switch
+        {
+            "uncommon"  => 10,
+            "rare"      => 25,
+            "epic"      => 50,
+            "legendary" => 100,
+            _           => 5
+        };
+    }
+
     [ContextMenu("Clear Pull History")]
     public void ClearLogFile()
     {
@@ -298,9 +412,15 @@ public class TelemetryLogger : MonoBehaviour
 
         public List<string> pull_results; // Backward compatibility - rarity strings
         public List<CardData> pulled_cards; // Full card data
-
+        
+        // Emotional snapshot AFTER pull
         public float satisfaction_after;
         public float frustration_after;
+
+        // Duplicate conversion summary for this pull
+        public int total_xp_gained;
+        public int duplicate_count;
+        public int player_xp_after;
     }
 
     [Serializable]
@@ -312,5 +432,13 @@ public class TelemetryLogger : MonoBehaviour
         public string element;
         public string rarity;
         public string position5;
+
+        // Duplicate conversion flags
+        public bool is_duplicate;
+        public int xp_gained;
+
+        // Pull counters
+        public int total_pulls_for_card;
+        public int duplicate_pulls_for_card;
     }
 }

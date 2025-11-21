@@ -17,6 +17,9 @@ namespace CCAS.Config
 
         // NEW (optional): Phase 1 – Part 2 tuning block
         public EmotionDynamics emotion_dynamics;
+
+        // NEW (optional): Phase 1 – Part 4 duplicate conversion tuning
+        public DuplicateXP duplicate_xp;
     }
 
     [Serializable]
@@ -118,4 +121,18 @@ namespace CCAS.Config
         public float S_cap = 100f;
         public float F_cap = 100;
     }
+}
+
+/// <summary>
+/// Phase 1 – Part 4 duplicate XP tuning (XP per rarity for duplicate cards).
+/// Matches the design in `Phase 1 – Part 4_ Duplicate Conversion System.pdf`.
+/// </summary>
+[Serializable]
+public class DuplicateXP
+{
+    public int common_duplicate_xp = 5;
+    public int uncommon_duplicate_xp = 10;
+    public int rare_duplicate_xp = 25;
+    public int epic_duplicate_xp = 50;
+    public int legendary_duplicate_xp = 100;
 }

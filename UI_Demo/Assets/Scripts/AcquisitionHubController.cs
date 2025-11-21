@@ -10,6 +10,7 @@ public class AcquisitionHubController : MonoBehaviour
 {
     [Header("UI References")]
     public TMP_Text coinsText;
+    public TMP_Text xpText;
 
     [Header("Buttons")]
     public Button goToMarketButton;
@@ -27,6 +28,8 @@ public class AcquisitionHubController : MonoBehaviour
         if (coinsText != null)
             coinsText.text = "Coins: 1200";
 
+        UpdateXPDisplay();
+
         if (goToMarketButton != null)
             goToMarketButton.onClick.AddListener(ShowMarket);
 
@@ -41,7 +44,11 @@ public class AcquisitionHubController : MonoBehaviour
     }
 
     // --- Navigation Helpers ---
-    public void ShowHub() => SetActivePanel(hubPanel);
+    public void ShowHub()
+    {
+        SetActivePanel(hubPanel);
+        UpdateXPDisplay();
+    }
     public void ShowMarket() => SetActivePanel(marketPanel);
     public void ShowMyPacks() => SetActivePanel(myPacksPanel);
 
@@ -67,5 +74,16 @@ public class AcquisitionHubController : MonoBehaviour
         dropHistoryPanel?.SetActive(active == dropHistoryPanel);
         if (myPacksPanel != null)
             myPacksPanel.SetActive(active == myPacksPanel);
+    }
+
+    /// <summary>
+    /// Updates the XP label on the hub using the player's total duplicate XP.
+    /// </summary>
+    private void UpdateXPDisplay()
+    {
+        if (xpText == null) return;
+
+        int xp = PlayerPrefs.GetInt("player_xp", 0);
+        xpText.text = $"XP: {xp}";
     }
 }

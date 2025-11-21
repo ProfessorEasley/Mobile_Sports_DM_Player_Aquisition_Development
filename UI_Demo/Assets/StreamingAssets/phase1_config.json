@@ -41,6 +41,13 @@
       "description": "Recent history (last N pulls) amplifies current emotions (balanced in code)"
     }
   },
+  "duplicate_xp": {
+    "common_duplicate_xp": 5,
+    "uncommon_duplicate_xp": 10,
+    "rare_duplicate_xp": 25,
+    "epic_duplicate_xp": 50,
+    "legendary_duplicate_xp": 100
+  },
   "rarity_values": {
     "common": { "numeric_value": 1, "display_name": "Common" },
     "uncommon": { "numeric_value": 2, "display_name": "Uncommon" },

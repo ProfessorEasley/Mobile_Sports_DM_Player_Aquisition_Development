@@ -134,12 +134,21 @@ public class DropHistoryController : MonoBehaviour
                     string cardName = !string.IsNullOrEmpty(cardData.name) ? cardData.name : "Unknown Card";
                     string rarity = !string.IsNullOrEmpty(cardData.rarity) ? cardData.rarity.ToLowerInvariant() : "common";
 
-                    tmp.text = cardName;
+                    // If this card was a duplicate, show XP next to it.
+                    bool isDuplicate = cardData.is_duplicate;
+                    int xp = cardData.xp_gained;
+                    string label = cardName;
+                    if (isDuplicate && xp > 0)
+                    {
+                        label = $"{cardName} (DUPLICATE +{xp} XP)";
+                    }
+
+                    tmp.text = label;
                     tmp.color = RarityColorUtility.GetColorForRarity(rarity);
                     cardCount++;
 
                     if (cardNamesLine.Length > 0) cardNamesLine.Append(", ");
-                    cardNamesLine.Append(cardName);
+                    cardNamesLine.Append(label);
                 }
             }
             else
